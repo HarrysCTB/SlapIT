@@ -1,0 +1,22 @@
+version: "3.8"
+services:
+  slapit-backend:
+    build: ./backend
+    container_name: slapit-backend
+    ports:
+      - "8000:8000"
+    environment:
+      - ENV=development
+      - SUPABASE_URL=https://agtjashknewzhaancvyf.supabase.co
+      - SUPABASE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFndGphc2hrbmV3emhhYW5jdnlmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDIyMDE4MjQsImV4cCI6MjA1Nzc3NzgyNH0.E0fTZQukGTVpkM7N_-biB9bhrZnB2xX3hbvZUO0Jllw
+    restart: unless-stopped
+  krakend:
+    image: devopsfaith/krakend:2.1.0
+    container_name: krakend
+    volumes:
+      - ./api-gateway/krakend.json:/etc/krakend/krakend.json:ro
+    ports:
+      - "8080:8080"
+    depends_on:
+      - slapit-backend
+    restart: unless-stopped

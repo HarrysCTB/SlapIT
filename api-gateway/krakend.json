@@ -1,0 +1,135 @@
+{
+    "version": 2,
+    "name": "KrakenD Gateway",
+    "port": 8080,
+    "timeout": "3000ms",
+    "cache_ttl": "300s",
+    "endpoints": [
+    {
+      "endpoint": "/communities",
+      "method": "POST",
+      "output_encoding": "json",
+      "backend": [
+        {
+          "host": [
+            "http://slapit-backend:8000"
+          ],
+          "url_pattern": "/communities",
+          "method": "POST"
+        }
+      ]
+    },
+    {
+      "endpoint": "/communities/{community_id}",
+      "method": "GET",
+      "output_encoding": "json",
+      "backend": [
+        {
+          "host": [
+            "http://slapit-backend:8000"
+          ],
+          "url_pattern": "/communities/{community_id}",
+          "method": "GET"
+        }
+      ]
+    },
+    {
+      "endpoint": "/communities/{community_id}/join",
+      "method": "POST",
+      "output_encoding": "json",
+      "backend": [
+        {
+          "host": [
+            "http://slapit-backend:8000"
+          ],
+          "url_pattern": "/communities/{community_id}/join",
+          "method": "POST"
+        }
+      ]
+    },
+    {
+      "endpoint": "/communities/{community_id}/quit",
+      "method": "DELETE",
+      "output_encoding": "json",
+      "backend": [
+        {
+          "host": [
+            "http://slapit-backend:8000"
+          ],
+          "url_pattern": "/communities/{community_id}/quit",
+          "method": "DELETE"
+        }
+      ]
+    },
+    {
+      "endpoint": "/communities/{community_id}/kick",
+      "method": "DELETE",
+      "output_encoding": "json",
+      "backend": [
+        {
+          "host": [
+            "http://slapit-backend:8000"
+          ],
+          "url_pattern": "/communities/{community_id}/kick",
+          "method": "DELETE"
+        }
+      ]
+    },
+    {
+        "endpoint": "/stickers",
+        "method": "POST",
+        "output_encoding": "json",
+        "backend": [
+          {
+            "host": [
+              "http://slapit-backend:8000"
+            ],
+            "url_pattern": "/stickers",
+            "method": "POST"
+          }
+        ]
+      },
+      {
+        "endpoint": "/stickers/{sticker_id}",
+        "method": "GET",
+        "output_encoding": "json",
+        "backend": [
+          {
+            "host": [
+              "http://slapit-backend:8000"
+            ],
+            "url_pattern": "/stickers/{sticker_id}",
+            "method": "GET"
+          }
+        ]
+      },
+      {
+        "endpoint": "/stickers/{sticker_id}",
+        "method": "DELETE",
+        "output_encoding": "json",
+        "backend": [
+          {
+            "host": [
+              "http://slapit-backend:8000"
+            ],
+            "url_pattern": "/stickers/{sticker_id}",
+            "method": "DELETE"
+          }
+        ]
+      },
+      {
+        "endpoint": "/profiles",
+        "method": "POST",
+        "output_encoding": "json",
+        "backend": [
+          {
+            "host": [
+              "http://slapit-backend:8000"
+            ],
+            "url_pattern": "/profiles",
+            "method": "POST"
+          }
+        ]
+      }
+  ]
+}
