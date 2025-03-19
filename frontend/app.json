@@ -1,0 +1,52 @@
+{
+  "expo": {
+    "name": "frontend",
+    "slug": "slapit",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/images/icon.png",
+    "scheme": "myapp",
+    "userInterfaceStyle": "automatic",
+    "newArchEnabled": true,
+    "ios": {
+      "supportsTablet": true
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/images/adaptive-icon.png",
+        "backgroundColor": "#ffffff"
+      }
+    },
+    "web": {
+      "bundler": "metro",
+      "output": "static",
+      "favicon": "./assets/images/favicon.png"
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/images/splash-icon.png",
+          "imageWidth": 200,
+          "resizeMode": "contain",
+          "backgroundColor": "#ffffff"
+        }
+      ]
+    ],
+    "experiments": {
+      "typedRoutes": true
+    },
+    "extra": {
+      "SUPABASE_URL": "https://agtjashknewzhaancvyf.supabase.co",
+      "SUPABASE_KEY": "yJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFndGphc2hrbmV3emhhYW5jdnlmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDIyMDE4MjQsImV4cCI6MjA1Nzc3NzgyNH0.E0fTZQukGTVpkM7N_-biB9bhrZnB2xX3hbvZUO0Jllw",
+      "router": {
+        "origin": false
+      },
+      "eas": {
+        "projectId": "2a369ae4-4254-433a-a6cb-752e95083582"
+      }
+    },
+    "owner": "einzoudine"
+  }
+}

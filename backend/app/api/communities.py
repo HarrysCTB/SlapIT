@@ -17,7 +17,7 @@ def create_community(community: CommunityCreate, supabase: Client = Depends(get_
     """
     community_id = str(uuid.uuid4())
     created_at = datetime.now(timezone.utc).isoformat()
-    
+
     # Préparer les données pour la communauté
     data = {
         "id": community_id,  # Génération automatique de l'ID
@@ -31,7 +31,7 @@ def create_community(community: CommunityCreate, supabase: Client = Depends(get_
     response = supabase.table("communities").insert(data).execute()
     if not response.data:
         raise HTTPException(status_code=400, detail=f"Error creating community: {response}")
-    
+
     # Insertion dans la table user_communities pour ajouter le créateur comme membre
     membership_data = {
         "user_id": str(community.admin_id),
@@ -41,7 +41,7 @@ def create_community(community: CommunityCreate, supabase: Client = Depends(get_
     mem_response = supabase.table("user_communities").insert(membership_data).execute()
     if not mem_response.data:
         raise HTTPException(status_code=400, detail=f"Community created but error adding user membership: {mem_response}")
-    
+
     return CommunityResponse(**data)
 
 @router.get("/{community_id}", response_model=CommunityResponse)
