@@ -1,16 +1,18 @@
 // app/auth/login.tsx
 import React, { useState } from 'react';
-import { View, TextInput, Button, StyleSheet, Image, TouchableOpacity } from 'react-native';
+import { View, TextInput, KeyboardAvoidingView, StyleSheet, Image, TouchableOpacity, ScrollView, Platform } from 'react-native';
 import { useRouter } from 'expo-router';
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
 import { supabase } from '@/configurations/supabaseClient';
 import { Stack } from 'expo-router';
+import { useColorScheme } from '@/hooks/useColorScheme';
 
 export default function Login() {
   const router = useRouter();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const colorScheme = useColorScheme();
 
   const handleLogin = async () => {
     try {
@@ -25,8 +27,8 @@ export default function Login() {
         return;
       }
   
-      console.log('Connexion réussie !', data);
-      // Par exemple, redirige l'utilisateur vers l'écran principal ou mets à jour le contexte d'authentification
+      console.log('Connexion réussie !');
+      router.push('/(tabs)')
     } catch (err) {
       console.error('Erreur lors de la tentative de connexion:', err);
     }
@@ -34,19 +36,18 @@ export default function Login() {
 
   return (
     <ThemedView style={styles.container}>
-        <Stack.Screen
-            options={{
-              headerShown: false
-            }}
-          />
-      {/* Navbar en haut pour accéder à la page d'accueil */}
-      <View style={styles.navbar}>
-        <TouchableOpacity onPress={() => router.push('/')}>
-          <ThemedText style={styles.navText}>Accueil</ThemedText>
-        </TouchableOpacity>
-      </View>
-
-      {/* Carte de connexion */}
+          <Stack.Screen options={{ headerShown: false }} />
+          
+          <KeyboardAvoidingView
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+            style={styles.flexFull}
+          >
+            <ScrollView
+              contentContainerStyle={styles.scrollContainer}
+              keyboardShouldPersistTaps="handled"
+              showsVerticalScrollIndicator={false}
+              showsHorizontalScrollIndicator={false}
+            >
       <View style={styles.card}>
         <Image source={require('../../assets/images/react-logo.png')} style={styles.logo} />
         <ThemedText style={styles.title}>Connexion</ThemedText>
@@ -55,7 +56,10 @@ export default function Login() {
         <View style={styles.inputContainer}>
           <ThemedText style={styles.label}>Adresse email</ThemedText>
           <TextInput
-            style={styles.input}
+            style={[
+              styles.input,
+              { color: colorScheme === 'light' ? '' : '#F7F7FF' }
+          ]}
             placeholder="Entrez votre email"
             value={email}
             onChangeText={setEmail}
@@ -68,7 +72,10 @@ export default function Login() {
         <View style={styles.inputContainer}>
           <ThemedText style={styles.label}>Mot de passe</ThemedText>
           <TextInput
-            style={styles.input}
+            style={[
+              styles.input,
+              { color: colorScheme === 'light' ? '' : '#F7F7FF' }
+          ]}
             placeholder="Entrez votre mot de passe"
             value={password}
             onChangeText={setPassword}
@@ -76,13 +83,60 @@ export default function Login() {
           />
         </View>
 
-        <Button title="Se connecter" onPress={handleLogin} />
+        <TouchableOpacity style={styles.link} onPress={() => router.push('/auth/login')}>
+                  <ThemedText style={
+                    [
+                      styles.linkText,
+                      { color: colorScheme === 'light' ? 'rgba(237, 37, 78, 0.8)'  : '#F7F7FF' }
+                    ]
+                  }>
+                  Mot de passe oublié ?
+                  </ThemedText>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+            style={
+              [
+                styles.loginButton,
+                { backgroundColor: colorScheme === 'light' ? 'rgba(237, 37, 78, 0.8)' : '#1B2432' }
+              ]
+            }
+            onPress={handleLogin}
+        >
+            <ThemedText style={styles.loginButtonText}>Se connecter</ThemedText>
+        </TouchableOpacity>
+        <TouchableOpacity
+            style={styles.createAccBtn}
+            onPress={() => router.push('/auth/register')}
+        >
+            <ThemedText style={
+              [
+                styles.createAccBtnText,
+                { color: colorScheme === 'light' ? 'rgba(237, 37, 78, 0.8)'  : '#F7F7FF' }
+              ]
+            }>Vous n'avez pas de compte ? <ThemedText style={[
+              styles.createAccSecondText,
+              { color: colorScheme === 'light' ? 'rgba(237, 37, 78, 0.8)'  : '#F7F7FF' }
+            ]}>Inscrivez-vous ici</ThemedText></ThemedText>
+        </TouchableOpacity>
       </View>
+      </ScrollView>
+      </KeyboardAvoidingView>
     </ThemedView>
   );
 }
 
 const styles = StyleSheet.create({
+  flexFull: {
+    flex: 1,
+    width: '100%',
+  },
+  scrollContainer: {
+    flexGrow: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingBottom: 40,
+  },
   container: {
     flex: 1,
     justifyContent: 'center',
@@ -100,13 +154,13 @@ const styles = StyleSheet.create({
     zIndex: 10,
   },
   navText: {
+    color: '#ED254E',
     fontSize: 16,
   },
   card: {
     width: '100%',
     padding: 16,
     borderRadius: 8,
-    backgroundColor: '#fff',
     alignItems: 'center',
     elevation: 2, // Pour Android
     shadowColor: '#000', // Pour iOS
@@ -124,15 +178,15 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: 'bold',
     marginBottom: 16,
+    color: '#545E75'
   },
   input: {
     width: '100%',
-    height: 40,
-    borderColor: '#ccc',
+    height: 45,
+    borderColor: '#A7A7A9',
     borderWidth: 1,
-    borderRadius: 4,
-    paddingHorizontal: 8,
-    marginBottom: 16,
+    borderRadius: 6,
+    paddingHorizontal: 12,
   },
   inputContainer: {
     width: '100%',
@@ -142,6 +196,37 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '500',
     marginBottom: 6,
-    color: '#666',
+    color: '#545E75'
   },
+  loginButton: {
+    width: '60%',
+    padding: 15,
+    borderRadius: 30,
+    alignItems: 'center',
+    marginTop: 10,
+  },
+  loginButtonText: {
+    color: '#F7F7FF',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  link: {
+    marginBottom: 10,
+  },
+  linkText: {
+    color: 'rgba(237, 37, 78, 0.8)',
+    fontSize: 14,
+    textDecorationLine: 'underline',
+  },
+  createAccBtn: {
+    marginTop: 20,
+  },
+  createAccBtnText: {
+    textAlign: 'center',
+    fontSize: 14,
+  },
+  createAccSecondText: {
+    fontSize: 14,
+    textDecorationLine: 'underline'
+  }
 });

@@ -11,7 +11,7 @@ services:
       - SUPABASE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFndGphc2hrbmV3emhhYW5jdnlmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDIyMDE4MjQsImV4cCI6MjA1Nzc3NzgyNH0.E0fTZQukGTVpkM7N_-biB9bhrZnB2xX3hbvZUO0Jllw
     restart: unless-stopped
   krakend:
-    image: devopsfaith/krakend:2.1.0
+    image: devopsfaith/krakend:2.9
     container_name: krakend
     volumes:
       - ./api-gateway/krakend.json:/etc/krakend/krakend.json:ro

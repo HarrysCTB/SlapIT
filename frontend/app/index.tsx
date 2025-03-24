@@ -1,65 +1,127 @@
 // app/home.tsx
 import React from 'react';
-import { View, StyleSheet, Button, Image } from 'react-native';
+import { TouchableOpacity, StyleSheet, Button, Image } from 'react-native';
 import { useRouter } from 'expo-router';
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
 import { Stack } from 'expo-router';
+import { useColorScheme } from '@/hooks/useColorScheme'
 
 export default function Home() {
   const router = useRouter();
+  const colorScheme = useColorScheme();
 
   return (
     <ThemedView style={styles.container}>
-      <Stack.Screen
-        options={{ headerShown: false }}
-      />
-      <ThemedText style={styles.title}>SlapIT</ThemedText>
-      <ThemedText style={styles.subtitle}>
-        Votre espace de partage de stickers urbains
-      </ThemedText>
-      <Image
-        source={require('../assets/images/react-logo.png')}
-        style={styles.icon}
-      />
-      <View style={styles.buttonContainer}>
-        <Button
-          title="Se connecter"
-          onPress={() => router.push('/auth/login')}
+        <Stack.Screen
+          options={{ headerShown: false }}
         />
-        <Button
-          title="S'inscrire"
-          onPress={() => router.push('/auth/register')}
+        <ThemedText style={styles.title}>SlapIT</ThemedText>
+        <ThemedText style={styles.subtitle}>
+        Slap it, map it, share it !
+        </ThemedText>
+        <Image
+          source={require('../assets/images/react-logo.png')}
+          style={styles.icon}
         />
-      </View>
+        <ThemedView style={styles.buttonContainer}>
+          <TouchableOpacity
+            style={
+              [
+                styles.filledButton,
+                { backgroundColor: colorScheme === 'light' ? 'rgba(237, 37, 78, 0.8)' : '#1B2432' }
+              ]
+            }
+            onPress={() => router.push('/auth/login')}
+          >
+            <ThemedText style={styles.filledButtonText}>Se connecter</ThemedText>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={
+              [
+                styles.outlinedButton,
+                { borderColor: colorScheme === 'light' ? 'rgba(237, 37, 78, 0.8)' : '#1B2432' }
+              ]
+            }
+            onPress={() => router.push('/auth/register')}
+          >
+            <ThemedText style={
+              [
+                styles.outlinedButtonText,
+                { color: colorScheme === 'light' ? '#ED254E' : '#F7F7FF' }
+              ]
+            }>S'inscrire</ThemedText>
+          </TouchableOpacity>
+      </ThemedView>
     </ThemedView>
   );
 }
 
 const styles = StyleSheet.create({
+  flexFull: {
+    flex: 1,
+    width: '100%',
+  },
+  scrollContainer: {
+    flexGrow: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingBottom: 40,
+  },
   container: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
     padding: 16,
+    height: '100%',
   },
   title: {
     fontSize: 32,
     fontWeight: 'bold',
     marginBottom: 8,
+    alignItems: 'center',
+    paddingTop: 10,
   },
   subtitle: {
     fontSize: 18,
-    marginBottom: 16,
+    marginBottom: 26,
+    textAlign: 'center',
   },
   icon: {
     width: 120,
     height: 120,
     resizeMode: 'contain',
-    marginBottom: 32,
+    marginBottom: 80,
   },
-  buttonContainer: {
-    flexDirection: 'row',
-    gap: 16, // Pour React Native < 0.71, tu peux utiliser marginHorizontal sur les boutons
+    buttonContainer: {
+      width: '100%',
+      paddingHorizontal: 20,
+      marginTop: 20,
+      gap: 16, // Ajoute un espace entre les boutons
+    },
+    filledButton: {
+      width: '100%', // Prend toute la largeur disponible
+      backgroundColor: '#ED254E',
+      paddingVertical: 12,
+      borderRadius: 30,
+      alignItems: 'center',
+      marginRight: 0, // Supprime la marge droite
+    },
+  filledButtonText: {
+    color: '#F7F7FF',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  outlinedButton: {
+    width: '100%', // Prend toute la largeur disponible
+    paddingVertical: 12,
+    borderRadius: 30,
+    alignItems: 'center',
+    borderWidth: 2,
+    marginLeft: 0, // Supprime la marge gauche
+  },
+  outlinedButtonText: {
+    fontSize: 16,
+    fontWeight: 'bold',
   },
 });

@@ -1,5 +1,5 @@
 {
-    "version": 2,
+    "version": 3,
     "name": "KrakenD Gateway",
     "port": 8080,
     "timeout": "3000ms",
@@ -12,7 +12,7 @@
       "backend": [
         {
           "host": [
-            "http://slapit-backend:8000"
+            "http://slapit-backend:4200"
           ],
           "url_pattern": "/communities",
           "method": "POST"
@@ -26,7 +26,7 @@
       "backend": [
         {
           "host": [
-            "http://slapit-backend:8000"
+            "http://slapit-backend:4200"
           ],
           "url_pattern": "/communities/{community_id}",
           "method": "GET"
@@ -40,7 +40,7 @@
       "backend": [
         {
           "host": [
-            "http://slapit-backend:8000"
+            "http://slapit-backend:4200"
           ],
           "url_pattern": "/communities/{community_id}/join",
           "method": "POST"
@@ -54,7 +54,7 @@
       "backend": [
         {
           "host": [
-            "http://slapit-backend:8000"
+            "http://slapit-backend:4200"
           ],
           "url_pattern": "/communities/{community_id}/quit",
           "method": "DELETE"
@@ -68,7 +68,7 @@
       "backend": [
         {
           "host": [
-            "http://slapit-backend:8000"
+            "http://slapit-backend:42000"
           ],
           "url_pattern": "/communities/{community_id}/kick",
           "method": "DELETE"
@@ -82,7 +82,7 @@
         "backend": [
           {
             "host": [
-              "http://slapit-backend:8000"
+              "http://slapit-backend:4200"
             ],
             "url_pattern": "/stickers",
             "method": "POST"
@@ -96,7 +96,7 @@
         "backend": [
           {
             "host": [
-              "http://slapit-backend:8000"
+              "http://slapit-backend:4200"
             ],
             "url_pattern": "/stickers/{sticker_id}",
             "method": "GET"
@@ -110,7 +110,7 @@
         "backend": [
           {
             "host": [
-              "http://slapit-backend:8000"
+              "http://slapit-backend:4200"
             ],
             "url_pattern": "/stickers/{sticker_id}",
             "method": "DELETE"
@@ -118,18 +118,46 @@
         ]
       },
       {
-        "endpoint": "/profiles",
+        "endpoint": "/users",
         "method": "POST",
         "output_encoding": "json",
         "backend": [
           {
             "host": [
-              "http://slapit-backend:8000"
+              "http://slapit-backend:4200"
             ],
             "url_pattern": "/profiles",
             "method": "POST"
           }
         ]
-      }
+      },
+      {
+        "endpoint": "/users/{auth_id}",
+        "method": "GET",
+        "output_encoding": "json",
+        "backend": [
+          {
+            "host": [
+              "http://slapit-backend:4200"
+            ],
+            "url_pattern": "/users/{auth_id}",
+            "method": "GET"
+          }
+        ]
+      },
+      {
+        "endpoint": "/health",
+        "method": "GET",
+        "output_encoding": "json",
+        "backend": [
+            {
+                "host": [
+                    "http://slapit-backend:4200"
+                ],
+                "url_pattern": "/health",
+                "method": "GET"
+            }
+        ]
+    }
   ]
 }

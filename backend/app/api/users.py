@@ -7,8 +7,8 @@ from app.services.user_service import create_profile
 
 router = APIRouter()
 
-@router.post("/profiles", response_model=ProfileResponse)
-def create_profile_route(profile: ProfileCreate, supabase: Client = Depends(get_db)):
+@router.post("/", response_model=ProfileResponse)
+def create_profile(profile: ProfileCreate, supabase: Client = Depends(get_db)):
     """
     Endpoint pour créer un profil utilisateur.
     """
@@ -20,3 +20,43 @@ def create_profile_route(profile: ProfileCreate, supabase: Client = Depends(get_
         bio=profile.bio
     )
     return created_profile
+
+from fastapi import APIRouter, Depends, HTTPException
+from typing import Optional
+
+
+@router.get("/{auth_id}", response_model=ProfileResponse)
+def get_profile(auth_id: str, supabase: Client = Depends(get_db)):
+    """
+    Endpoint pour récupérer les informations d'un profil utilisateur.
+
+    Args:
+        auth_id: L'identifiant d'authentification de l'utilisateur
+        supabase: Instance du client Supabase
+
+    Returns:
+        ProfileResponse: Les informations du profil
+
+    Raises:
+        HTTPException: Si le profil n'est pas trouvé
+    """
+    try:
+        response = supabase.table('profiles') \
+            .select("*") \
+            .eq('auth_id', auth_id) \
+            .single() \
+            .execute()
+
+        if not response.data:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Profil non trouvé pour l'auth_id: {auth_id}"
+            )
+            
+        return response.data
+        
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Erreur lors de la récupération du profil: {str(e)}"
+        )

@@ -39,7 +39,7 @@
     },
     "extra": {
       "SUPABASE_URL": "https://agtjashknewzhaancvyf.supabase.co",
-      "SUPABASE_KEY": "yJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFndGphc2hrbmV3emhhYW5jdnlmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDIyMDE4MjQsImV4cCI6MjA1Nzc3NzgyNH0.E0fTZQukGTVpkM7N_-biB9bhrZnB2xX3hbvZUO0Jllw",
+      "SUPABASE_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFndGphc2hrbmV3emhhYW5jdnlmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDIyMDE4MjQsImV4cCI6MjA1Nzc3NzgyNH0.E0fTZQukGTVpkM7N_-biB9bhrZnB2xX3hbvZUO0Jllw",
       "router": {
         "origin": false
       },

@@ -4,6 +4,7 @@ from app.config import settings
 from app.api import communities
 from app.api import users
 from app.api import stickers
+import datetime
 
 app = FastAPI(title="SlapIt API", version="1.0.0")
 
@@ -23,3 +24,11 @@ app.include_router(stickers.router, prefix="/stickers", tags=["Stickers"])
 @app.get("/")
 def root():
     return {"message": "Bienvenue sur l'API SlapIt 🚀"}
+
+@app.get("/health")
+async def health_check():
+    return {
+        "status": "healthy",
+        "timestamp": datetime.datetime.now().isoformat(),
+        "version": "1.0.0"
+    }

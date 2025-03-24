@@ -24,8 +24,6 @@ export default function RootLayout() {
 
   useEffect(() => {
     if (loaded && !loading && !user) {
-      // Si les ressources sont chargées et qu'aucun utilisateur n'est authentifié,
-      // redirige vers la page de login
       router.replace('/');
     }
   }, [loaded, loading, user]);
