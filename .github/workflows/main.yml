@@ -8,11 +8,12 @@ on:
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      # Build & Push vers GHCR (owner/repo en minuscules)
+      # ---- Build & Push image to GHCR ----
       - name: Log in to GHCR
         uses: docker/login-action@v3
         with:
@@ -22,13 +23,24 @@ jobs:
 
       - name: Build & Push Docker image
         run: |
-          IMAGE=ghcr.io/${{ toLower(github.repository_owner) }}/${{ toLower(github.event.repository.name) }}/slapit-backend
-          echo "Using image: $IMAGE:latest"
-          docker build -t $IMAGE:latest ./backend
-          docker push $IMAGE:latest
+          OWNER_LC=$(echo "${GITHUB_REPOSITORY_OWNER}" | tr '[:upper:]' '[:lower:]')
+          # GITHUB_REPOSITORY = Owner/Repo → on ne garde que le nom puis on minuscule
+          REPO_NAME="${GITHUB_REPOSITORY#*/}"
+          REPO_LC=$(echo "${REPO_NAME}" | tr '[:upper:]' '[:lower:]')
 
-      # Déploiement sur VPS
-      - name: Deploy on VPS
+          IMAGE="ghcr.io/${OWNER_LC}/${REPO_LC}/slapit-backend"
+          echo "Using image: $IMAGE:latest"
+
+          docker build -t "$IMAGE:latest" ./backend
+          docker push "$IMAGE:latest"
+
+      # ---- Deploy on VPS via SSH ----
+      - name: Add VPS to known_hosts
+        run: |
+          mkdir -p ~/.ssh
+          ssh-keyscan -H ${{ secrets.VPS_HOST }} >> ~/.ssh/known_hosts
+
+      - name: Deploy on VPS (rsync + compose)
         uses: appleboy/ssh-action@v1.2.0
         with:
           host: ${{ secrets.VPS_HOST }}
@@ -39,14 +51,27 @@ jobs:
             cd ~/apps/slapit
 
             if [ ! -d .git ]; then
-              git clone https://github.com/${{ github.repository }} .
+              git clone https://github.com/${GITHUB_REPOSITORY} .
             else
               git fetch origin main && git reset --hard origin/main
             fi
 
-            # Remplace l'image dans docker-compose si besoin
-            IMAGE="ghcr.io/${{ toLower(github.repository_owner) }}/${{ toLower(github.event.repository.name) }}/slapit-backend:latest"
-            sed -i "s|image: .*slapit-backend.*|image: ${IMAGE}|g" docker-compose.yml || true
+            OWNER_LC=$(echo "${GITHUB_REPOSITORY_OWNER}" | tr '[:upper:]' '[:lower:]')
+            REPO_NAME="${GITHUB_REPOSITORY#*/}"
+            REPO_LC=$(echo "${REPO_NAME}" | tr '[:upper:]' '[:lower:]')
+            IMAGE_LINE="image: ghcr.io/${OWNER_LC}/${REPO_LC}/slapit-backend:latest"
+            
+            sed -i "s|^\\s*image: .*slapit-backend.*|  ${IMAGE_LINE}|g" docker-compose.yml || true
+
+            # crée backend/.env si absent (utilise tes secrets)
+            mkdir -p backend
+            if [ ! -f backend/.env ]; then
+              cat > backend/.env << 'EOF'
+              SUPABASE_URL=${{ secrets.SUPABASE_URL }}
+              SUPABASE_KEY=${{ secrets.SUPABASE_KEY }}
+              ENV=production
+              EOF
+            fi
 
             docker compose pull
             docker compose up -d --remove-orphans
