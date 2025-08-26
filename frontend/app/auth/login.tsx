@@ -49,7 +49,7 @@ export default function Login() {
               showsHorizontalScrollIndicator={false}
             >
       <View style={styles.card}>
-        <Image source={require('../../assets/images/react-logo.png')} style={styles.logo} />
+        <Image source={require('../../assets/images/slapit.png')} style={styles.logo} />
         <ThemedText style={styles.title}>Connexion</ThemedText>
 
         {/* Champ Email avec label */}
@@ -98,7 +98,7 @@ export default function Login() {
             style={
               [
                 styles.loginButton,
-                { backgroundColor: colorScheme === 'light' ? 'rgba(237, 37, 78, 0.8)' : '#1B2432' }
+                { backgroundColor: colorScheme === 'light' ? 'rgba(237, 37, 78, 0.8)' : '#3A3A3C' }
               ]
             }
             onPress={handleLogin}

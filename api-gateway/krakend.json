@@ -6,7 +6,33 @@
     "cache_ttl": "300s",
     "endpoints": [
     {
-      "endpoint": "/communities",
+      "endpoint": "/docs",
+      "method": "GET",
+      "output_encoding": "no-op",
+      "backend": [
+        {
+          "url_pattern": "/docs",
+          "host": [
+            "http://slapit-backend:4200"
+          ]
+        }
+      ]
+    },
+    {
+      "endpoint": "/openapi.json",
+      "method": "GET",
+      "output_encoding": "no-op",
+      "backend": [
+        {
+          "url_pattern": "/openapi.json",
+          "host": [
+            "http://slapit-backend:4200"
+          ]
+        }
+      ]
+    },
+    {
+      "endpoint": "/communities/",
       "method": "POST",
       "output_encoding": "json",
       "backend": [
@@ -14,7 +40,7 @@
           "host": [
             "http://slapit-backend:4200"
           ],
-          "url_pattern": "/communities",
+          "url_pattern": "/communities/",
           "method": "POST"
         }
       ]
@@ -72,6 +98,20 @@
           ],
           "url_pattern": "/communities/{community_id}/kick",
           "method": "DELETE"
+        }
+      ]
+    },
+    {
+      "endpoint": "/communities/{community_id}/users",
+      "method": "GET",
+      "output_encoding": "json",
+      "backend": [
+        {
+          "host": [
+            "http://slapit-backend:4200"
+          ],
+          "url_pattern": "/communities/{community_id}/users",
+          "method": "GET"
         }
       ]
     },

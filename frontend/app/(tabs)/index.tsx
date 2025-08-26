@@ -1,68 +1,67 @@
 // app/home.tsx
-import React from 'react';
+import React, { useState } from 'react';
 import { StyleSheet, ScrollView, TouchableOpacity, View } from 'react-native';
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
 import OSMMap from '@/components/MapComponent';
 import Header from '@/components/Header';
-import { HelloWave } from '@/components/HelloWave';
-import { useRouter } from 'expo-router';
 import { useColorScheme } from '@/hooks/useColorScheme';
+import AddStickerModal from '@/components/AddStickerModal';
 
 export default function HomeScreen() {
-  const router = useRouter();
   const colorScheme = useColorScheme();
+  const [isAddOpen, setIsAddOpen] = useState(false);
+
+  // callback après succès pour, par ex., rafraîchir les données de la carte
+  const handleAdded = () => {
+    // TODO: déclenche un refresh de la map si besoin (contexte/app state/query invalidate)
+  };
 
   return (
     <ThemedView style={styles.container}>
-      {/* Header fixe */}
       <View>
         <Header />
       </View>
 
-      {/* Contenu scrollable */}
       <ScrollView contentContainerStyle={styles.contentContainer}>
-        {/* Par exemple, on affiche une carte */}
         <View style={styles.mapContainer}>
           <OSMMap />
         </View>
+
         <TouchableOpacity
           style={[
             styles.addStickerButton,
-            { backgroundColor: colorScheme === 'light' ? 'rgba(237, 37, 78, 0.8)' : '#1B2432' }
+            { backgroundColor: colorScheme === 'light' ? 'rgba(237, 37, 78, 0.8)' : '#3A3A3C' }
           ]}
-          onPress={() => router.push('/stickers/add')}
+          onPress={() => setIsAddOpen(true)}
         >
           <ThemedText style={styles.addStickerText}>Ajouter un sticker</ThemedText>
         </TouchableOpacity>
       </ScrollView>
+
+      <AddStickerModal
+        visible={isAddOpen}
+        onClose={() => setIsAddOpen(false)}
+        onSuccess={handleAdded}
+      />
     </ThemedView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
+  container: { flex: 1 },
   header: {
     height: 100,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#ED254E', // couleur de fond du header
+    backgroundColor: '#ED254E',
     paddingHorizontal: 16,
     marginBottom: 10
   },
-  title: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    marginBottom: 4,
-  },
-  contentContainer: {
-    flexGrow: 1,
-    padding: 10,
-  },
+  title: { fontSize: 28, fontWeight: 'bold', marginBottom: 4 },
+  contentContainer: { flexGrow: 1, padding: 10 },
   mapContainer: {
-    height: '70%', // Par exemple, 30% de la hauteur de l'écran (tant que le parent a une hauteur définie)
+    height: '70%',
     borderRadius: 8,
     overflow: 'hidden',
     marginBottom: 16,
@@ -75,9 +74,5 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginTop: 16,
   },
-  addStickerText: {
-    color: '#F7F7FF',
-    fontSize: 16,
-    fontWeight: '600',
-  },
+  addStickerText: { color: '#F7F7FF', fontSize: 16, fontWeight: '600' },
 });

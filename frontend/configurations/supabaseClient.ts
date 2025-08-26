@@ -1,3 +1,6 @@
+global.WebSocket = global.WebSocket || WebSocket;
+global.window = global;
+
 import Constants from 'expo-constants';
 import { createClient } from '@supabase/supabase-js';
 

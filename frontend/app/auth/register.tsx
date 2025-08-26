@@ -65,7 +65,7 @@ export default function Register() {
           {/* Carte d'inscription avec glassmorphism */}
           <View style={styles.card}>
             <Image 
-              source={require('../../assets/images/react-logo.png')} 
+              source={require('../../assets/images/slapit.png')} 
               style={styles.logo} 
             />
             <ThemedText style={styles.title}>Créer un compte</ThemedText>
@@ -148,7 +148,7 @@ export default function Register() {
               style={
                 [
                   styles.registerButton,
-                  { backgroundColor: colorScheme === 'light' ? 'rgba(237, 37, 78, 0.8)' : '#1B2432' }
+                  { backgroundColor: colorScheme === 'light' ? 'rgba(237, 37, 78, 0.8)' : '#3A3A3C' }
               ]
               }
               onPress={handleRegister}

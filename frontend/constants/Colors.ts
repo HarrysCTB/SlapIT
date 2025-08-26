@@ -16,10 +16,10 @@ export const Colors = {
     tabIconSelected: tintColorLight,
   },
   dark: {
-    text: '#F7F7FF',           // Un texte quasi-blanc pour une bonne lisibilité sur fond sombre
-    background: '#080705',     // Fond sombre (gris ardoise)
+    text: '#B3B3B3',           // Un texte quasi-blanc pour une bonne lisibilité sur fond sombre
+    background: '#121212',     // Fond sombre (gris ardoise)
     tint: tintColorDark,       // Variante plus claire du tint en mode sombre
-    icon: '#9CA3AF',           // Gris clair pour les icônes
+    icon: '#A68EFF',           // Gris clair pour les icônes
     tabIconDefault: '#6B7280', // Gris moyen pour les icônes non sélectionnées
     tabIconSelected: tintColorDark,
   },

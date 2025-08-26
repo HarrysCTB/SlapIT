@@ -1,6 +1,6 @@
 // app/home.tsx
 import React from 'react';
-import { TouchableOpacity, StyleSheet, Button, Image } from 'react-native';
+import { TouchableOpacity, StyleSheet, Button, Image, Animated } from 'react-native';
 import { useRouter } from 'expo-router';
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
@@ -10,6 +10,20 @@ import { useColorScheme } from '@/hooks/useColorScheme'
 export default function Home() {
   const router = useRouter();
   const colorScheme = useColorScheme();
+  const rotateAnim = new Animated.Value(0);
+
+  React.useEffect(() => {
+    Animated.timing(rotateAnim, {
+      toValue: 1,
+      duration: 1000, // Duration de l'animation en ms
+      useNativeDriver: true,
+    }).start();
+  }, []);
+
+  const spin = rotateAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: ['0deg', '360deg']
+  });
 
   return (
     <ThemedView style={styles.container}>
@@ -20,16 +34,21 @@ export default function Home() {
         <ThemedText style={styles.subtitle}>
         Slap it, map it, share it !
         </ThemedText>
-        <Image
-          source={require('../assets/images/react-logo.png')}
-          style={styles.icon}
+        <Animated.Image
+          source={require('../assets/images/slapit.png')}
+          style={[
+            styles.icon,
+            {
+              transform: [{ rotate: spin }]
+            }
+          ]}
         />
         <ThemedView style={styles.buttonContainer}>
           <TouchableOpacity
             style={
               [
                 styles.filledButton,
-                { backgroundColor: colorScheme === 'light' ? 'rgba(237, 37, 78, 0.8)' : '#1B2432' }
+                { backgroundColor: colorScheme === 'light' ? 'rgba(237, 37, 78, 0.8)' : '#3A3A3C' }
               ]
             }
             onPress={() => router.push('/auth/login')}
@@ -40,7 +59,7 @@ export default function Home() {
             style={
               [
                 styles.outlinedButton,
-                { borderColor: colorScheme === 'light' ? 'rgba(237, 37, 78, 0.8)' : '#1B2432' }
+                { borderColor: colorScheme === 'light' ? 'rgba(237, 37, 78, 0.8)' : '#3A3A3C' }
               ]
             }
             onPress={() => router.push('/auth/register')}

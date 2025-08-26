@@ -1,15 +1,18 @@
 version: "3.8"
+
 services:
   slapit-backend:
-    build: ./backend
+    image: ghcr.io/GH_OWNER_REPO/slapit-backend:${TAG:-latest}
     container_name: slapit-backend
-    ports:
-      - "8000:8000"
-    environment:
-      - ENV=development
-      - SUPABASE_URL=https://agtjashknewzhaancvyf.supabase.co
-      - SUPABASE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFndGphc2hrbmV3emhhYW5jdnlmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDIyMDE4MjQsImV4cCI6MjA1Nzc3NzgyNH0.E0fTZQukGTVpkM7N_-biB9bhrZnB2xX3hbvZUO0Jllw
+    env_file:
+      - ./backend/.env
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8000/healthz || exit 1"]
+      interval: 15s
+      timeout: 3s
+      retries: 5
     restart: unless-stopped
+
   krakend:
     image: devopsfaith/krakend:2.9
     container_name: krakend
@@ -18,5 +21,32 @@ services:
     ports:
       - "8080:8080"
     depends_on:
-      - slapit-backend
+      slapit-backend:
+        condition: service_healthy
     restart: unless-stopped
+
+  prom:
+    image: prom/prometheus:latest
+    container_name: prom
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    ports:
+      - "9090:9090"
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
+    ports:
+      - "3000:3000"
+    volumes:
+      - grafana-data:/var/lib/grafana
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+    depends_on:
+      - prom
+    restart: unless-stopped
+
+volumes:
+  grafana-data:

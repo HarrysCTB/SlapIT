@@ -6,33 +6,36 @@ from app.schemas.community import CommunityCreate, CommunityResponse
 import uuid
 from datetime import datetime, timezone
 from supabase import Client
+from typing import List
 
 router = APIRouter()
 
 @router.post("/", response_model=CommunityResponse)
 def create_community(community: CommunityCreate, supabase: Client = Depends(get_db)):
     """
-    Crée une communauté et l'inscrit dans la table communities.
-    Ajoute également le créateur (admin) comme membre dans user_communities.
+    Crée une communauté et met à jour :
+    1. La table communities avec la nouvelle communauté
+    2. La table user_communities pour le créateur
+    3. La table profiles pour mettre à jour le community_id et is_admin du créateur
     """
     community_id = str(uuid.uuid4())
     created_at = datetime.now(timezone.utc).isoformat()
 
     # Préparer les données pour la communauté
     data = {
-        "id": community_id,  # Génération automatique de l'ID
+        "id": community_id,
         "name": community.name,
         "description": community.description,
         "admin_id": str(community.admin_id),
         "created_at": created_at
     }
-    
+
     # Insertion dans la table communities
     response = supabase.table("communities").insert(data).execute()
     if not response.data:
-        raise HTTPException(status_code=400, detail=f"Error creating community: {response}")
+        raise HTTPException(status_code=400, detail=f"Erreur lors de la création de la communauté: {response}")
 
-    # Insertion dans la table user_communities pour ajouter le créateur comme membre
+    # Insertion dans la table user_communities
     membership_data = {
         "user_id": str(community.admin_id),
         "community_id": community_id,
@@ -40,7 +43,22 @@ def create_community(community: CommunityCreate, supabase: Client = Depends(get_
     }
     mem_response = supabase.table("user_communities").insert(membership_data).execute()
     if not mem_response.data:
-        raise HTTPException(status_code=400, detail=f"Community created but error adding user membership: {mem_response}")
+        raise HTTPException(status_code=400, detail="Communauté créée mais erreur lors de l'ajout du membre")
+
+    # Mise à jour du profil de l'utilisateur avec le community_id et is_admin
+    profile_response = supabase.table("profiles") \
+        .update({
+            "community_id": community_id,
+            "is_admin": True
+        }) \
+        .eq("auth_id", str(community.admin_id)) \
+        .execute()
+    
+    if not profile_response.data:
+        raise HTTPException(
+            status_code=400,
+            detail="Erreur lors de la mise à jour du profil administrateur"
+        )
 
     return CommunityResponse(**data)
 
@@ -74,29 +92,105 @@ def join_community(community_id: str, user_id: str, supabase: Client = Depends(g
 @router.delete("/{community_id}/quit")
 def quit_community(community_id: str, user_id: str, supabase: Client = Depends(get_db)):
     """
-    Permet à un utilisateur de quitter une communauté.
+    Permet à un utilisateur de quitter une communauté et met à jour son profil.
+    1. Supprime l'entrée dans user_communities
+    2. Met à jour le community_id du profil à null
     """
-    response = supabase.table("user_communities").delete().eq("community_id", community_id).eq("user_id", user_id).execute()
+    # Supprime l'utilisateur de la communauté
+    response = supabase.table("user_communities") \
+        .delete() \
+        .eq("community_id", community_id) \
+        .eq("user_id", user_id) \
+        .execute()
+        
     if not response.data:
-        raise HTTPException(status_code=response.status_code, detail=str(response.data))
-    return {"message": "User left the community successfully"}
+        raise HTTPException(
+            status_code=response.status_code,
+            detail="Erreur lors de la suppression de l'utilisateur de la communauté"
+        )
+
+    # Met à jour le profil de l'utilisateur (community_id à null)
+    profile_response = supabase.table("profiles") \
+        .update({"community_id": None}) \
+        .eq("auth_id", str(user_id)) \
+        .execute()
+
+    if not profile_response.data:
+        raise HTTPException(
+            status_code=400,
+            detail="L'utilisateur a quitté la communauté mais erreur lors de la mise à jour du profil"
+        )
+
+    return {"message": "Vous avez quitté la communauté avec succès"}
 
 @router.delete("/{community_id}/kick")
 def kick_user(community_id: str, admin_id: str, user_id: str, supabase: Client = Depends(get_db)):
     """
     Permet à l'administrateur d'une communauté d'expulser un utilisateur.
+    1. Vérifie les droits de l'admin
+    2. Supprime l'utilisateur de la communauté
+    3. Met à jour le profil de l'utilisateur expulsé
     """
-    # Vérifier que la communauté existe et récupérer l'admin de la communauté
+    # Vérifier que la communauté existe et récupérer l'admin
     community_response = supabase.table("communities").select("admin_id").eq("id", community_id).execute()
     if not community_response.data:
-        raise HTTPException(status_code=404, detail="Community not found")
+        raise HTTPException(status_code=404, detail="Communauté introuvable")
 
     community_admin = community_response.data[0]["admin_id"]
     if str(community_admin) != str(admin_id):
-        raise HTTPException(status_code=403, detail="Only the admin can kick a user")
+        raise HTTPException(status_code=403, detail="Seul l'administrateur peut expulser un utilisateur")
 
     # Supprimer la relation utilisateur/communauté
-    response = supabase.table("user_communities").delete().eq("community_id", community_id).eq("user_id", user_id).execute()
+    response = supabase.table("user_communities") \
+        .delete() \
+        .eq("community_id", community_id) \
+        .eq("user_id", user_id) \
+        .execute()
+
     if not response.data:
-        raise HTTPException(status_code=response.status_code, detail=str(response.data))
-    return {"message": "User kicked from the community successfully"}
+        raise HTTPException(
+            status_code=response.status_code,
+            detail="Erreur lors de l'expulsion de l'utilisateur"
+        )
+
+    # Mettre à jour le profil de l'utilisateur expulsé
+    profile_response = supabase.table("profiles") \
+        .update({"community_id": None}) \
+        .eq("auth_id", str(user_id)) \
+        .execute()
+
+    if not profile_response.data:
+        raise HTTPException(
+            status_code=400,
+            detail="L'utilisateur a été expulsé mais erreur lors de la mise à jour de son profil"
+        )
+
+    return {"message": "L'utilisateur a été expulsé avec succès"}
+
+
+@router.get("/{community_id}/users")
+def get_users_from_community(community_id: str, supabase: Client = Depends(get_db)):
+    """
+    Récupère tous les profils des utilisateurs d'une communauté spécifique.
+    Retourne une liste de profils.
+    """
+    try:
+        # Vérifie si la communauté existe
+        community_response = supabase.table("communities") \
+            .select("id") \
+            .eq("id", community_id) \
+            .execute()
+
+        if not community_response.data:
+            raise HTTPException(status_code=404, detail="Communauté introuvable")
+
+        # Récupère les profils des utilisateurs dans cette communauté
+        users_response = supabase.table("profiles") \
+            .select("*") \
+            .eq("community_id", community_id) \
+            .execute()
+
+        return { "community_users": users_response.data }
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erreur : {str(e)}")

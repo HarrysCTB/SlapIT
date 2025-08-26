@@ -1,6 +1,5 @@
-// components/Header.tsx
 import React from 'react';
-import { View, TouchableOpacity, StyleSheet, useColorScheme } from 'react-native';
+import { View, TouchableOpacity, StyleSheet, useColorScheme, Image } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 
@@ -12,11 +11,18 @@ const Header = () => {
     <View
       style={[
         styles.header,
-        { backgroundColor: colorScheme === 'light' ? 'rgba(237, 37, 78, 0.8)' : '#1B2432' }
+        { backgroundColor: colorScheme === 'light' ? 'rgba(237, 37, 78, 0.8)' : '#3A3A3C' }
       ]}
     >
       <TouchableOpacity onPress={() => router.push('/profile')}>
         <Feather name="user" size={24} color="white" />
+      </TouchableOpacity>
+
+      <TouchableOpacity onPress={() => router.push('/(tabs)')}>
+        <Image 
+          source={require('../assets/images/slapit.png')} 
+          style={styles.logo}
+        />
       </TouchableOpacity>
 
       <TouchableOpacity onPress={() => router.push('/settings')}>
@@ -36,6 +42,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 20,
   },
+  logo: {
+    width: 40,
+    height: 40,
+    resizeMode: 'contain',
+  }
 });
 
 export default Header;
