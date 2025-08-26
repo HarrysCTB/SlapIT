@@ -2,7 +2,7 @@ version: "3.8"
 
 services:
   slapit-backend:
-    image: ghcr.io/GH_OWNER_REPO/slapit-backend:${TAG:-latest}
+    image: ghcr.io/harrysctb/slapit/slapit-backend:latest
     container_name: slapit-backend
     env_file:
       - ./backend/.env
