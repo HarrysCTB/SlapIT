@@ -50,32 +50,32 @@ jobs:
 
       - name: Compose pull & up
         uses: appleboy/ssh-action@v1.2.0
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
         with:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_SSH_KEY }}
+          envs: SUPABASE_URL,SUPABASE_KEY
           script: |
-            set -e
+            set -euo pipefail
             APP_DIR="/home/${{ secrets.VPS_USER }}/apps/slapit"
             cd "$APP_DIR"
-
-            # Assure l’image GHCR correcte dans docker-compose.yml
+      
+            # Forcer l'image GHCR (owner en minuscules)
             OWNER_LC=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
             sed -i "s|image: .*slapit-backend.*|image: ghcr.io/${OWNER_LC}/slapit-backend:latest|g" docker-compose.yml || true
-
-            # Crée backend/.env si manquant (injecte depuis Secrets GitHub)
+      
+            # Écrire/mettre à jour backend/.env depuis les secrets (sans heredoc)
             mkdir -p backend
-            if [ ! -f backend/.env ]; then
-              cat > backend/.env << 'EOF'
-              SUPABASE_URL=${{ secrets.SUPABASE_URL }}
-              SUPABASE_KEY=${{ secrets.SUPABASE_KEY }}
-              ENV=production
-              EOF
-            fi
-
-            docker compose pull
-            docker compose up -d --remove-orphans
-            docker system prune -f
+            {
+              echo "SUPABASE_URL=${SUPABASE_URL}"
+              echo "SUPABASE_KEY=${SUPABASE_KEY}"
+              echo "ENV=production"
+            } > backend/.env
+      
+            # Déploiement
             docker compose pull
             docker compose up -d --remove-orphans
             docker system prune -f
