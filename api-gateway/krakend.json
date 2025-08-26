@@ -36,8 +36,6 @@
         }
       ]
     },
-
-    /* ---------- Communities ---------- */
     {
       "endpoint": "/communities/",
       "method": "POST",
@@ -89,8 +87,6 @@
         { "host": ["http://slapit-backend:8000"], "url_pattern": "/communities/{community_id}/users", "method": "GET" }
       ]
     },
-
-    /* ---------- Stickers ---------- */
     {
       "endpoint": "/stickers/",
       "method": "POST",
@@ -126,8 +122,6 @@
         { "host": ["http://slapit-backend:8000"], "url_pattern": "/stickers/", "method": "HEAD" }
       ]
     },
-
-    /* ---------- Users / Profiles ---------- */
     {
       "endpoint": "/users",
       "method": "POST",
@@ -144,8 +138,6 @@
         { "host": ["http://slapit-backend:8000"], "url_pattern": "/users/{auth_id}", "method": "GET" }
       ]
     },
-
-    /* ---------- Health ---------- */
     {
       "endpoint": "/health",
       "method": "GET",

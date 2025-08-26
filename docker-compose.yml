@@ -15,7 +15,7 @@ services:
        - "8000:8000"
 
   krakend:
-    image: devopsfaith/krakend:2.9
+    image: krakend:2.9
     container_name: krakend
     command: ["run", "-c", "/etc/krakend/krakend.json"]
     volumes:
