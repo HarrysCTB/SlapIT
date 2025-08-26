@@ -1,19 +1,19 @@
-# Utilise une image Python officielle (ici la version 3.10-slim)
-FROM python:3.10-slim
+# backend/Dockerfile
+FROM python:3.11-slim
 
-# Définit le répertoire de travail
 WORKDIR /app
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1
 
-# Copie le fichier requirements.txt et installe les dépendances
-COPY requirements.txt .
-RUN pip install --upgrade pip && \
-    pip install --no-cache-dir -r requirements.txt
+# utilitaires min (curl pour healthchecks)
+RUN apt-get update && apt-get install -y --no-install-recommends curl && rm -rf /var/lib/apt/lists/*
 
-# Copie l'ensemble du code de l'application dans le conteneur
+COPY requirements.txt ./
+RUN pip install --upgrade pip && pip install --no-cache-dir -r requirements.txt
+
 COPY . .
 
-# Expose le port 8000 (port par défaut de uvicorn)
 EXPOSE 8000
-
-# Démarre l'application avec uvicorn
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "4200"]
+# Gunicorn + uvicorn workers (plus robuste que uvicorn seul)
+CMD ["gunicorn", "-k", "uvicorn.workers.UvicornWorker", "-w", "2", "-b", "0.0.0.0:8000", "app.main:app"]
