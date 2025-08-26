@@ -1,7 +1,5 @@
-version: "3.8"
-
 services:
-    slapit-backend:
+  slapit-backend:
     image: ghcr.io/harrysctb/slapit/slapit-backend:latest
     container_name: slapit-backend
     env_file:
@@ -43,11 +41,11 @@ services:
     volumes:
       - grafana-data:/var/lib/grafana
     environment:
-      - GF_SECURITY_ADMIN_USER=admin
-      - GF_SECURITY_ADMIN_PASSWORD=admin
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
     depends_on:
       - prom
     restart: unless-stopped
 
 volumes:
-  grafana-data:
+  grafana-data: {}
