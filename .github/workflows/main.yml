@@ -2,49 +2,53 @@ name: CI/CD Backend
 
 on:
   push:
-    branches: [ main ]
-  workflow_dispatch:
+    branches: [ main ]         # déploie uniquement quand tu pushes sur main
+  workflow_dispatch:            # permet aussi de déclencher à la main
 
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
-
     permissions:
       contents: read
-      packages: write
+      packages: write          # nécessaire pour pousser sur GHCR
 
     steps:
-      - name: Checkout code
+      - name: Checkout
         uses: actions/checkout@v4
 
-      # ---- Build & Push image to GHCR ----
-      - name: Log in to GHCR
+      # ---------- Build & Push image vers GHCR ----------
+      - name: Login GHCR
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build & Push Docker image
+      - name: Build & Push image (owner/repo en minuscules)
         run: |
           OWNER_LC=$(echo "${GITHUB_REPOSITORY_OWNER}" | tr '[:upper:]' '[:lower:]')
-          # GITHUB_REPOSITORY = Owner/Repo → on ne garde que le nom puis on minuscule
-          REPO_NAME="${GITHUB_REPOSITORY#*/}"
-          REPO_LC=$(echo "${REPO_NAME}" | tr '[:upper:]' '[:lower:]')
-
-          IMAGE="ghcr.io/${OWNER_LC}/${REPO_LC}/slapit-backend"
-          echo "Using image: $IMAGE:latest"
-
+          IMAGE="ghcr.io/${OWNER_LC}/slapit-backend"
+          echo "Image: $IMAGE:latest"
           docker build -t "$IMAGE:latest" ./backend
           docker push "$IMAGE:latest"
 
-      # ---- Deploy on VPS via SSH ----
+      # ---------- Déploiement: rsync des fichiers puis compose ----------
       - name: Add VPS to known_hosts
         run: |
           mkdir -p ~/.ssh
           ssh-keyscan -H ${{ secrets.VPS_HOST }} >> ~/.ssh/known_hosts
 
-      - name: Deploy on VPS (rsync + compose)
+      - name: Sync repo to VPS (rsync)
+        uses: burnett01/rsync-deployments@5.2
+        with:
+          switches: -az --delete
+          path: ./
+          remote_path: /home/${{ secrets.VPS_USER }}/apps/slapit
+          remote_host: ${{ secrets.VPS_HOST }}
+          remote_user: ${{ secrets.VPS_USER }}
+          remote_key: ${{ secrets.VPS_SSH_KEY }}
+
+      - name: Compose pull & up
         uses: appleboy/ssh-action@v1.2.0
         with:
           host: ${{ secrets.VPS_HOST }}
@@ -52,22 +56,14 @@ jobs:
           key: ${{ secrets.VPS_SSH_KEY }}
           script: |
             set -e
-            cd ~/apps/slapit
+            APP_DIR="/home/${{ secrets.VPS_USER }}/apps/slapit"
+            cd "$APP_DIR"
 
-            if [ ! -d .git ]; then
-              git clone https://github.com/${GITHUB_REPOSITORY} .
-            else
-              git fetch origin main && git reset --hard origin/main
-            fi
+            # Assure l’image GHCR correcte dans docker-compose.yml
+            OWNER_LC=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
+            sed -i "s|image: .*slapit-backend.*|image: ghcr.io/${OWNER_LC}/slapit-backend:latest|g" docker-compose.yml || true
 
-            OWNER_LC=$(echo "${GITHUB_REPOSITORY_OWNER}" | tr '[:upper:]' '[:lower:]')
-            REPO_NAME="${GITHUB_REPOSITORY#*/}"
-            REPO_LC=$(echo "${REPO_NAME}" | tr '[:upper:]' '[:lower:]')
-            IMAGE_LINE="image: ghcr.io/${OWNER_LC}/${REPO_LC}/slapit-backend:latest"
-            
-            sed -i "s|^\\s*image: .*slapit-backend.*|  ${IMAGE_LINE}|g" docker-compose.yml || true
-
-            # crée backend/.env si absent (utilise tes secrets)
+            # Crée backend/.env si manquant (injecte depuis Secrets GitHub)
             mkdir -p backend
             if [ ! -f backend/.env ]; then
               cat > backend/.env << 'EOF'
@@ -77,6 +73,9 @@ jobs:
               EOF
             fi
 
+            docker compose pull
+            docker compose up -d --remove-orphans
+            docker system prune -f
             docker compose pull
             docker compose up -d --remove-orphans
             docker system prune -f
