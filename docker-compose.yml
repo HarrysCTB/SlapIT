@@ -11,10 +11,13 @@ services:
       retries: 6
       start_period: 20s
     restart: unless-stopped
+    ports:
+       - "8000:8000"
 
   krakend:
     image: devopsfaith/krakend:2.9
     container_name: krakend
+    command: ["run", "-c", "/etc/krakend/krakend.json"]
     volumes:
       - ./api-gateway/krakend.json:/etc/krakend/krakend.json:ro
     ports:
