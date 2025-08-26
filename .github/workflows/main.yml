@@ -24,7 +24,7 @@ jobs:
 
       - name: Build & Push Docker image
         run: |
-          IMAGE=ghcr.io/${{ github.repository }}/slapit-backend
+          IMAGE=ghcr.io/${{ github.repository_owner,, }}/slapit/slapit-backend
           docker build -t $IMAGE:latest ./backend
           docker push $IMAGE:latest
 
