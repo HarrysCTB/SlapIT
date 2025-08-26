@@ -12,7 +12,7 @@ services:
       start_period: 20s
     restart: unless-stopped
     ports:
-       - "8000:8000"
+      - "8000:8000"
 
   krakend:
     image: krakend:2.9
@@ -43,6 +43,7 @@ services:
       - "3000:3000"
     volumes:
       - grafana-data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
     environment:
       GF_SECURITY_ADMIN_USER: admin
       GF_SECURITY_ADMIN_PASSWORD: admin
@@ -50,5 +51,27 @@ services:
       - prom
     restart: unless-stopped
 
+  loki:
+    image: grafana/loki:2.9.7
+    container_name: loki
+    command: ["-config.file=/etc/loki/config.yml"]
+    volumes:
+      - ./loki/config.yml:/etc/loki/config.yml:ro
+      - loki-data:/loki
+    restart: unless-stopped
+
+  promtail:
+    image: grafana/promtail:2.9.7
+    container_name: promtail
+    command: ["-config.file=/etc/promtail/config.yml"]
+    volumes:
+      - ./promtail/config.yml:/etc/promtail/config.yml:ro
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    depends_on:
+      - loki
+    restart: unless-stopped
+
 volumes:
   grafana-data: {}
+  loki-data: {}
