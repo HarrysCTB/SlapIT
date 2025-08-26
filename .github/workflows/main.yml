@@ -2,20 +2,18 @@ name: CI/CD Backend
 
 on:
   push:
-    branches:
-      - main
+    branches: [ main ]
   workflow_dispatch:
 
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      # 🔹 Build & Push l'image sur GHCR
-      - name: Log in to GitHub Container Registry
+      # Build & Push vers GHCR (owner/repo en minuscules)
+      - name: Log in to GHCR
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
@@ -24,11 +22,12 @@ jobs:
 
       - name: Build & Push Docker image
         run: |
-          IMAGE=ghcr.io/${{ github.repository_owner,, }}/slapit/slapit-backend
+          IMAGE=ghcr.io/${{ toLower(github.repository_owner) }}/${{ toLower(github.event.repository.name) }}/slapit-backend
+          echo "Using image: $IMAGE:latest"
           docker build -t $IMAGE:latest ./backend
           docker push $IMAGE:latest
 
-      # 🔹 Déploiement sur VPS via SSH
+      # Déploiement sur VPS
       - name: Deploy on VPS
         uses: appleboy/ssh-action@v1.2.0
         with:
@@ -39,15 +38,16 @@ jobs:
             set -e
             cd ~/apps/slapit
 
-            # pull repo + maj
             if [ ! -d .git ]; then
               git clone https://github.com/${{ github.repository }} .
             else
               git fetch origin main && git reset --hard origin/main
             fi
 
-            # update images & restart
+            # Remplace l'image dans docker-compose si besoin
+            IMAGE="ghcr.io/${{ toLower(github.repository_owner) }}/${{ toLower(github.event.repository.name) }}/slapit-backend:latest"
+            sed -i "s|image: .*slapit-backend.*|image: ${IMAGE}|g" docker-compose.yml || true
+
             docker compose pull
             docker compose up -d --remove-orphans
-
             docker system prune -f
