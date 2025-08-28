@@ -91,11 +91,13 @@
       "endpoint": "/stickers/",
       "method": "POST",
       "output_encoding": "json",
-      "extra_config": {
-        "github_com/devopsfaith/krakend/proxy": { "read_timeout": "60s", "dial_timeout": "5s" }
-      },
       "backend": [
-        { "host": ["http://slapit-backend:8000"], "url_pattern": "/stickers/", "method": "POST" }
+        {
+          "host": ["http://slapit-backend:8000"],
+          "url_pattern": "/stickers/",
+          "method": "POST",
+          "headers_to_pass": ["Authorization", "Content-Type", "Accept"]
+        }
       ]
     },
     {
