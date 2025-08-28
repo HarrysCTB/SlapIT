@@ -34,9 +34,12 @@ jobs:
 
       # ---------- Déploiement: rsync des fichiers puis compose ----------
       - name: Add VPS to known_hosts
+        shell: bash
         run: |
-          mkdir -p ~/.ssh
-          ssh-keyscan -H ${{ secrets.VPS_HOST }} >> ~/.ssh/known_hosts
+          SSH_DIR="${HOME:-/github/home}/.ssh"
+          mkdir -p "$SSH_DIR"
+          chmod 700 "$SSH_DIR"
+          ssh-keyscan -H ${{ secrets.VPS_HOST }} >> "$SSH_DIR/known_hosts"
 
       - name: Sync repo to VPS (rsync)
         uses: burnett01/rsync-deployments@5.2
