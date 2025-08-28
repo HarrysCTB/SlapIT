@@ -28,7 +28,7 @@ services:
     restart: unless-stopped
 
   prom:
-    image: prom/prometheus:latest
+    image: quay.io/prometheus/prometheus:latest
     container_name: prom
     volumes:
       - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
@@ -37,7 +37,7 @@ services:
     restart: unless-stopped
 
   grafana:
-    image: grafana/grafana:latest
+    image: ghcr.io/grafana/grafana:latest
     container_name: grafana
     ports:
       - "3000:3000"
@@ -52,7 +52,7 @@ services:
     restart: unless-stopped
 
   loki:
-    image: grafana/loki:2.9.7
+    image: ghcr.io/grafana/loki:2.9.7
     container_name: loki
     command: ["-config.file=/etc/loki/config.yml"]
     volumes:
@@ -68,7 +68,7 @@ services:
     restart: unless-stopped
 
   promtail:
-    image: grafana/promtail:2.9.7
+    image: ghcr.io/grafana/promtail:2.9.7
     container_name: promtail
     command: ["-config.file=/etc/promtail/config.yml"]
     volumes:
