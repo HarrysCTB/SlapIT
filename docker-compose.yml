@@ -60,11 +60,6 @@ services:
       - loki-data:/loki
     ports:
       - "3100:3100"
-    healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://localhost:3100/ready"]
-      interval: 15s
-      timeout: 3s
-      retries: 5
     restart: unless-stopped
 
   promtail:
@@ -77,7 +72,7 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock:ro
     depends_on:
       loki:
-        condition: service_healthy
+        condition: service_started
     restart: unless-stopped
 
 volumes:
