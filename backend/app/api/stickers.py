@@ -20,8 +20,9 @@ def add_sticker(sticker: StickerCreate, supabase = Depends(get_db)):
     if not auth_id:
         raise HTTPException(status_code=400, detail="auth_id is required")
 
+    new_id = str(uuid4())
     data = {
-        "id": str(uuid4()),
+        "id": new_id,
         "community_id": community_id,
         "title": sticker.title.strip(),
         "description": (sticker.description or "").strip(),
@@ -32,17 +33,15 @@ def add_sticker(sticker: StickerCreate, supabase = Depends(get_db)):
     }
 
     try:
-        # on demande à Supabase de renvoyer l'id pour avoir un body non vide
-        res = supabase.table("stickers").insert(data).select("id").execute()
-        new_id = (res.data or [{}])[0].get("id", data["id"])
-
-        # ✅ IMPORTANT: 200 + JSON (Krakend aime ça)
-        return JSONResponse(status_code=200, content={"ok": True, "id": new_id})
+        supabase.table("stickers").insert(data).execute()  # ✅ pas de .select() ici
     except APIError as e:
-        # ex: FK cassée si auth_id n'existe pas dans users
+        # souvent FK cassée (auth_id/communauté inexistante) ou UUID invalide
         raise HTTPException(status_code=400, detail=e.message or "Insert failed")
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+    # ✅ 200 pour KrakenD
+    return JSONResponse(status_code=200, content={"ok": True, "id": new_id})
 
 @router.get("/{sticker_id}", response_model=StickerResponse)
 def get_sticker(sticker_id: str, supabase: Client = Depends(get_db)):
