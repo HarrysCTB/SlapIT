@@ -7,7 +7,7 @@ on:
 
 permissions:
   contents: read
-  packages: write 
+  packages: write
 
 jobs:
   deploy:
@@ -17,25 +17,28 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Normalize owner name
+      - name: Owner (lowercase)
         id: vars
         run: echo "owner_lc=${GITHUB_REPOSITORY_OWNER,,}" >> $GITHUB_OUTPUT
-      
-      - name: Build & push backend image to GHCR
-        uses: docker/build-push-action@v6
-        with:
-          context: ./backend
-          push: true
-          tags: ghcr.io/${{ steps.vars.outputs.owner_lc }}/slapit-backend:latest
-          provenance: false
-      - name: Login GHCR (runner)
+
+      # 1) LOGIN GHCR AVANT DE BUILDER/PUSHER
+      - name: Login to GHCR (for push)
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      # --- Envoi des fichiers sur le VPS (SCP) ---
+      # 2) BUILD + PUSH
+      - name: Build & Push backend image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./backend
+          push: true
+          tags: ghcr.io/${{ steps.vars.outputs.owner_lc }}/slapit-backend:latest
+          provenance: false
+
+      # 3) UPLOAD DU CODE SUR LE VPS
       - name: Upload repo to VPS
         uses: appleboy/scp-action@v0.1.7
         with:
@@ -49,12 +52,13 @@ jobs:
           timeout: 60s
           command_timeout: 10m
 
-      # --- Commandes de déploiement sur le VPS (SSH) ---
+      # 4) DEPLOY SUR LE VPS
       - name: Deploy on VPS
         uses: appleboy/ssh-action@v1.2.0
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+          GHCR_PAT: ${{ secrets.GHCR_PAT }}   # <-- PAT perso (write:packages)
         with:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
@@ -68,11 +72,11 @@ jobs:
             APP_DIR="/home/${{ secrets.VPS_USER }}/apps/slapit"
             cd "$APP_DIR"
 
-            # pointer l’image GHCR en latest
+            # Forcer l’image en latest (owner en minuscules)
             OWNER_LC="$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')"
             sed -i "s|image: .*slapit-backend.*|image: ghcr.io/${OWNER_LC}/slapit-backend:latest|g" docker-compose.yml || true
 
-            # .env backend (remplacé à chaque deploy)
+            # .env backend
             mkdir -p backend
             {
               echo "SUPABASE_URL=${SUPABASE_URL}"
@@ -80,12 +84,9 @@ jobs:
               echo "ENV=production"
             } > backend/.env
 
-            # login GHCR (côté VPS) au cas où le pull a besoin d’un token
-            echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin || true
+            # LOGIN GHCR côté VPS avec PAT (PAS le GITHUB_TOKEN)
+            echo "${GHCR_PAT}" | docker login ghcr.io -u "${{ steps.vars.outputs.owner_lc }}" --password-stdin
 
-            # déploiement
             docker compose pull
             docker compose up -d --remove-orphans
-
-            # ménage
             docker system prune -f
