@@ -28,7 +28,6 @@ export default function AddStickerModal({
   onClose,
   onSuccess,
   defaultCommunityId = null,
-  authId = '3fa85f64-5717-4562-b3fc-2c963f66afa6',
   bucketName = 'avatars',
 }: Props) {
   const colorScheme = useColorScheme();
@@ -182,7 +181,7 @@ export default function AddStickerModal({
   };
 
   // ---------- upload supabase ----------
-  const uploadToSupabase = async (asset: ImagePicker.ImagePickerAsset): Promise<string> => {
+  const uploadToSupabase = async (asset: ImagePicker.ImagePickerAsset, userId: string): Promise<string> => {
     // on essaye base64 direct (compressé), sinon fallback lecture FS
     let b64 = (asset as any).base64 as string | undefined;
     if (!b64) {
@@ -197,7 +196,8 @@ export default function AddStickerModal({
 
     const ext = (asset.fileName?.split('.').pop() || 'jpg').toLowerCase();
     const contentType = (asset as any).mimeType || (ext === 'png' ? 'image/png' : 'image/jpeg');
-    const path = `stickers/${authId}/${Date.now()}.${ext}`;
+    // ⬇️ on utilise l'id de l'utilisateur pour ranger l'image
+    const path = `stickers/${userId}/${Date.now()}.${ext}`;
 
     const { error } = await supabase.storage.from(bucketName).upload(path, bytes, {
       contentType,
@@ -230,8 +230,16 @@ export default function AddStickerModal({
     try {
       setLoading(true);
 
-      // 1) Upload (timeout 45s)
-      const publicUrl = await withTimeout(uploadToSupabase(image), 45000, 'Upload');
+      // 🔑 Récupère l'utilisateur courant Supabase
+      const { data: userData, error } = await supabase.auth.getUser();
+      const userId = userData?.user?.id;
+      if (error || !userId) {
+        Alert.alert('Erreur', 'Utilisateur non connecté.');
+        return;
+      }
+
+      // 1) Upload (timeout 45s) — on passe userId
+      const publicUrl = await withTimeout(uploadToSupabase(image, userId), 45000, 'Upload');
 
       // 2) POST avec Abort + timeout 25s + 1 retry
       abortRef.current?.abort();
@@ -244,21 +252,19 @@ export default function AddStickerModal({
       }
 
       const payload = {
-        community_id: communityId.trim(),
+        community_id: communityId.trim(),     // doit être un UUID (string) valide
         title: title.trim(),
         description: description.trim(),
         image_url: publicUrl,
         long: Number(lng),
         lat: Number(lat),
-        auth_id: authId,
+        auth_id: userId,                      // ✅ l’UUID Supabase Auth du user courant
       };
 
       let res = await withTimeout(postSticker(payload, controller.signal), 25000, 'POST /stickers');
-      if (!res.ok) {
+      if (!res.ok && res.status >= 500) {
         // retry unique si code >=500 (réseau lent/serveur)
-        if (res.status >= 500) {
-          res = await withTimeout(postSticker(payload, controller.signal), 25000, 'POST /stickers (retry)');
-        }
+        res = await withTimeout(postSticker(payload, controller.signal), 25000, 'POST /stickers (retry)');
       }
       if (!res.ok) {
         const txt = await res.text().catch(() => '');

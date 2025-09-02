@@ -1,43 +1,48 @@
 from fastapi import APIRouter, HTTPException, Depends
-from uuid import UUID
+from fastapi.responses import JSONResponse
+from uuid import UUID, uuid4
 from app.core.database import get_db
 from postgrest.exceptions import APIError
 from supabase import Client
 from app.models.sticker import StickerCreate
 from app.schemas.sticker import StickerResponse
-import uuid
 
 router = APIRouter()
 
 @router.post("/", response_model=StickerResponse)
 def add_sticker(sticker: StickerCreate, supabase = Depends(get_db)):
-    # Normalisation
-    community_id_str = str(sticker.community_id) if isinstance(sticker.community_id, UUID) else None
-    if community_id_str is None:
-        # si tu le veux obligatoire :
+    # Normalisation/validation rapide
+    community_id = str(sticker.community_id) if isinstance(sticker.community_id, UUID) else str(sticker.community_id or "")
+    auth_id      = str(sticker.auth_id)      if isinstance(sticker.auth_id, UUID)      else str(sticker.auth_id or "")
+
+    if not community_id:
         raise HTTPException(status_code=400, detail="community_id is required")
+    if not auth_id:
+        raise HTTPException(status_code=400, detail="auth_id is required")
 
     data = {
-        "id": str(uuid.uuid4()),
-        "community_id": community_id_str,
+        "id": str(uuid4()),
+        "community_id": community_id,
         "title": sticker.title.strip(),
         "description": (sticker.description or "").strip(),
         "image_url": str(sticker.image_url),
         "long": float(sticker.long),
         "lat": float(sticker.lat),
-        "auth_id": str(sticker.auth_id),
+        "auth_id": auth_id,
     }
 
     try:
-        supabase.table("stickers").insert(data).execute()
-    except APIError as e:
-        # Remonter une erreur propre (ex: uuid invalide)
-        raise HTTPException(status_code=400, detail=e.message or "Insert failed")
+        # on demande à Supabase de renvoyer l'id pour avoir un body non vide
+        res = supabase.table("stickers").insert(data).select("id").execute()
+        new_id = (res.data or [{}])[0].get("id", data["id"])
 
-    return {
-        "id": data["id"],
-        **{k: data[k] for k in ("community_id","title","description","image_url","long","lat","auth_id")}
-    }
+        # ✅ IMPORTANT: 200 + JSON (Krakend aime ça)
+        return JSONResponse(status_code=200, content={"ok": True, "id": new_id})
+    except APIError as e:
+        # ex: FK cassée si auth_id n'existe pas dans users
+        raise HTTPException(status_code=400, detail=e.message or "Insert failed")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/{sticker_id}", response_model=StickerResponse)
 def get_sticker(sticker_id: str, supabase: Client = Depends(get_db)):
