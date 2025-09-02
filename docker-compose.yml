@@ -1,6 +1,6 @@
 services:
   slapit-backend:
-    image: ghcr.io/harrysctb/slapit/slapit-backend:latest
+    image: ghcr.io/harrysctb/slapit-backend:latest
     container_name: slapit-backend
     env_file:
       - ./backend/.env
@@ -15,7 +15,7 @@ services:
       - "8000:8000"
 
   krakend:
-    image: krakend:2.9
+    image: devopsfaith/krakend:2.6.2
     container_name: krakend
     command: ["run", "-c", "/etc/krakend/krakend.json"]
     volumes:
@@ -28,7 +28,7 @@ services:
     restart: unless-stopped
 
   prom:
-    image: quay.io/prometheus/prometheus:latest
+    image: prom/prometheus:v2.54.1
     container_name: prom
     volumes:
       - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
@@ -37,7 +37,7 @@ services:
     restart: unless-stopped
 
   grafana:
-    image: ghcr.io/grafana/grafana:latest
+    image: grafana/grafana:10.4.5
     container_name: grafana
     ports:
       - "3000:3000"
@@ -52,7 +52,7 @@ services:
     restart: unless-stopped
 
   loki:
-    image: ghcr.io/grafana/loki:2.9.7
+    image: grafana/loki:2.9.8
     container_name: loki
     command: ["-config.file=/etc/loki/config.yml"]
     volumes:
@@ -68,7 +68,7 @@ services:
     restart: unless-stopped
 
   promtail:
-    image: ghcr.io/grafana/promtail:2.9.7
+    image: grafana/promtail:2.9.8
     container_name: promtail
     command: ["-config.file=/etc/promtail/config.yml"]
     volumes:
