@@ -1,39 +1,52 @@
-name: CI/CD Backend
+name: CI/CD
 
 on:
   push:
-    branches: [ main ]
+    branches: [main]
   workflow_dispatch:
 
 jobs:
-  build-and-deploy:
+  deploy:
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      packages: write
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Login to GHCR
+      - name: Build & push backend image to GHCR
+        uses: docker/build-push-action@v6
+        with:
+          context: ./backend
+          push: true
+          tags: ghcr.io/${{ github.repository_owner }}/slapit-backend:latest
+          provenance: false
+      - name: Login GHCR (runner)
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build & Push backend image
-        run: |
-          OWNER_LC=$(echo "${GITHUB_REPOSITORY_OWNER}" | tr '[:upper:]' '[:lower:]')
-          IMAGE="ghcr.io/${OWNER_LC}/slapit-backend:latest"
-          echo "Building $IMAGE"
-          docker build -t "$IMAGE" ./backend
-          docker push "$IMAGE"
+      # --- Envoi des fichiers sur le VPS (SCP) ---
+      - name: Upload repo to VPS
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: 2222
+          source: .
+          target: /home/${{ secrets.VPS_USER }}/apps/slapit
+          overwrite: true
+          timeout: 60s
+          command_timeout: 10m
 
-      # Déploiement SSH: pas de copie de fichiers, juste compose pull/up
-      - name: Deploy to VPS (SSH)
+      # --- Commandes de déploiement sur le VPS (SSH) ---
+      - name: Deploy on VPS
         uses: appleboy/ssh-action@v1.2.0
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
         with:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
@@ -46,15 +59,25 @@ jobs:
             set -euo pipefail
             APP_DIR="/home/${{ secrets.VPS_USER }}/apps/slapit"
             cd "$APP_DIR"
-            OWNER_LC=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
+
+            # pointer l’image GHCR en latest
+            OWNER_LC="$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')"
             sed -i "s|image: .*slapit-backend.*|image: ghcr.io/${OWNER_LC}/slapit-backend:latest|g" docker-compose.yml || true
+
+            # .env backend (remplacé à chaque deploy)
             mkdir -p backend
             {
               echo "SUPABASE_URL=${SUPABASE_URL}"
               echo "SUPABASE_KEY=${SUPABASE_KEY}"
               echo "ENV=production"
             } > backend/.env
-            docker login ghcr.io -u "${{ github.actor }}" -p ${{ secrets.GITHUB_TOKEN }} || true
+
+            # login GHCR (côté VPS) au cas où le pull a besoin d’un token
+            echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin || true
+
+            # déploiement
             docker compose pull
             docker compose up -d --remove-orphans
+
+            # ménage
             docker system prune -f
