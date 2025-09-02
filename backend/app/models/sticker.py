@@ -1,13 +1,20 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 from typing import Optional
-import uuid
+from uuid import UUID
 
 class StickerCreate(BaseModel):
-    community_id: str
+    community_id: UUID
     title: str
-    description: Optional[str] = None
+    description: Optional[str] = ""
     image_url: str
     long: float
     lat: float
-    auth_id: uuid.UUID
-    
+    auth_id: UUID
+
+    @field_validator("title")
+    @classmethod
+    def title_not_empty(cls, v: str) -> str:
+        v = (v or "").strip()
+        if not v:
+            raise ValueError("title is required")
+        return v

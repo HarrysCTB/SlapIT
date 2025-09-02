@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import {
   Modal, View, StyleSheet, TextInput, TouchableOpacity,
+  TouchableWithoutFeedback, Keyboard,
   ActivityIndicator, Image, KeyboardAvoidingView, Platform, Alert
 } from 'react-native';
 import { BlurView } from 'expo-blur';
@@ -237,8 +238,13 @@ export default function AddStickerModal({
       const controller = new AbortController();
       abortRef.current = controller;
 
+      if (!communityId || !communityId.trim()) {
+        Alert.alert('Communauté requise', 'Choisis une communauté avant de publier.');
+        return;
+      }
+
       const payload = {
-        community_id: communityId || null,
+        community_id: communityId.trim(),
         title: title.trim(),
         description: description.trim(),
         image_url: publicUrl,
@@ -273,17 +279,18 @@ export default function AddStickerModal({
 
   return (
     <Modal visible={visible} onRequestClose={onClose} transparent animationType="fade">
-      <BlurView intensity={40} tint={colorScheme === 'dark' ? 'dark' : 'light'} style={styles.blur}>
-        <KeyboardAvoidingView behavior={Platform.select({ ios: 'padding', android: undefined })} style={styles.kav}>
-          <View
-            style={[
-              styles.card,
-              {
-                backgroundColor: colorScheme === 'dark' ? 'rgba(22,22,24,0.75)' : 'rgba(255,255,255,0.7)',
-                borderColor: colorScheme === 'dark' ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)',
-              },
-            ]}
-          >
+  <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
+    <View style={{ flex: 1 }}>
+      <BlurView
+        intensity={40}
+        tint={colorScheme === 'dark' ? 'dark' : 'light'}
+        style={styles.blur}
+      >
+        <KeyboardAvoidingView
+          behavior={Platform.select({ ios: 'padding', android: undefined })}
+          style={styles.kav}
+        >
+          <View style={styles.card}>
             <View style={styles.header}>
               <View style={styles.handle} />
               <ThemedText style={styles.title}>Ajouter un sticker</ThemedText>
@@ -292,6 +299,7 @@ export default function AddStickerModal({
               </TouchableOpacity>
             </View>
 
+            {/* Boutons photo */}
             <View style={styles.row}>
               <TouchableOpacity style={[styles.photoBtn, styles.primaryBtn]} onPress={pickFromCamera} disabled={loading}>
                 <ThemedText style={styles.photoBtnText}>Prendre une photo</ThemedText>
@@ -301,12 +309,14 @@ export default function AddStickerModal({
               </TouchableOpacity>
             </View>
 
+            {/* Preview image */}
             {image && (
               <View style={styles.previewContainer}>
                 <Image source={{ uri: image.uri }} style={styles.preview} />
               </View>
             )}
 
+            {/* Inputs */}
             <TextInput
               placeholder="Titre"
               placeholderTextColor="#8E8E93"
@@ -323,10 +333,7 @@ export default function AddStickerModal({
               multiline
             />
 
-            <ThemedText style={styles.coords}>
-              {lat != null && lng != null ? `Lat ${lat.toFixed(5)} · Lng ${lng.toFixed(5)}` : 'Récupération position…'}
-            </ThemedText>
-
+            {/* Bouton publier */}
             <View style={styles.actions}>
               <TouchableOpacity
                 style={[styles.actionBtn, styles.submitBtn, loading && { opacity: 0.7 }]}
@@ -339,13 +346,16 @@ export default function AddStickerModal({
           </View>
         </KeyboardAvoidingView>
       </BlurView>
-    </Modal>
+    </View>
+  </TouchableWithoutFeedback>
+</Modal>
   );
 }
 
 const styles = StyleSheet.create({
   blur: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   kav: { width: '100%', paddingHorizontal: 16 },
+
   card: {
     width: '100%',
     maxWidth: 540,
@@ -354,15 +364,21 @@ const styles = StyleSheet.create({
     padding: 14,
     overflow: 'hidden',
     borderWidth: 1,
+    borderColor: 'rgba(142,142,147,0.25)',
     shadowColor: '#000',
     shadowOpacity: 0.18,
     shadowRadius: 20,
     elevation: 8,
-    backdropFilter: 'blur(12px)' as any,
+    backgroundColor: 'white',
   },
+
   header: { alignItems: 'center', marginBottom: 8 },
   handle: {
-    width: 44, height: 5, borderRadius: 3, marginTop: 4, marginBottom: 10,
+    width: 44,
+    height: 5,
+    borderRadius: 3,
+    marginTop: 4,
+    marginBottom: 10,
     backgroundColor: 'rgba(142,142,147,0.4)',
   },
   title: { fontSize: 18, fontWeight: '700' },
@@ -370,18 +386,38 @@ const styles = StyleSheet.create({
   closeTxt: { fontSize: 16, opacity: 0.8 },
 
   row: { flexDirection: 'row', gap: 10, marginVertical: 10 },
-  photoBtn: { flex: 1, paddingVertical: 14, borderRadius: 12, alignItems: 'center' },
-  primaryBtn: { backgroundColor: '#ED254E' },
-  ghostBtn: { borderWidth: 1, borderColor: 'rgba(142,142,147,0.35)', backgroundColor: 'transparent' },
-  photoBtnText: { color: '#F7F7FF', fontWeight: '700' },
-  photoGhostText: { fontWeight: '700', opacity: 0.9 },
 
+  // Boutons "Prendre une photo" / "Galerie"
+  photoBtn: {
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  primaryBtn: { backgroundColor: '#ED254E' },
+  ghostBtn: {
+    backgroundColor: 'transparent',
+    borderWidth: 1,
+    borderColor: 'rgba(142,142,147,0.35)',
+  },
+  photoBtnText: { color: '#F7F7FF', fontWeight: '700' },
+  photoGhostText: { color: '#111', fontWeight: '700', opacity: 0.9 },
+
+  // Preview image
   previewContainer: {
-    width: '100%', height: 190, borderRadius: 14, overflow: 'hidden',
-    marginTop: 6, marginBottom: 12, borderWidth: 1, borderColor: 'rgba(0,0,0,0.06)',
+    width: '100%',
+    height: 190,
+    borderRadius: 14,
+    overflow: 'hidden',
+    marginTop: 6,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(0,0,0,0.06)',
   },
   preview: { width: '100%', height: '100%' },
 
+  // Inputs
   input: {
     backgroundColor: 'rgba(142,142,147,0.14)',
     borderRadius: 12,
@@ -394,8 +430,10 @@ const styles = StyleSheet.create({
   },
   textarea: { minHeight: 90, textAlignVertical: 'top' },
 
+  // Coordonnées
   coords: { opacity: 0.8, fontSize: 12, marginTop: 2, marginBottom: 6, textAlign: 'center' },
 
+  // Actions (Publier)
   actions: { flexDirection: 'row', gap: 10, marginTop: 8 },
   actionBtn: { flex: 1, paddingVertical: 14, borderRadius: 12, alignItems: 'center' },
   submitBtn: { backgroundColor: '#ED254E' },

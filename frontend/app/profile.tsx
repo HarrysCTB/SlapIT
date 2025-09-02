@@ -14,12 +14,13 @@ import {
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from 'expo-file-system';
-import { decode as atob } from 'base-64';
 import mime from 'mime';
-import { supabase } from '../configurations/supabaseClient'
+import { Ionicons } from '@expo/vector-icons';
+import { supabase } from '../configurations/supabaseClient';
 import Header from '@/components/Header';
 
 const API_URL = 'http://87.106.230.12:8080';
+const BIO_MAX = 200;
 
 export default function Profiles() {
   const [username, setUsername] = useState('');
@@ -38,7 +39,7 @@ export default function Profiles() {
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsEditing: true,
       aspect: [1, 1],
-      quality: 0.7,
+      quality: 0.8,
     });
 
     if (!result.canceled) {
@@ -48,83 +49,69 @@ export default function Profiles() {
 
   const uploadToSupabase = async (fileUri: string): Promise<string | null> => {
     try {
-      const fileExt = fileUri.split('.').pop();
-      const fileName = `${Date.now()}.${fileExt}`;
-      const fileType = mime.getType(fileUri) || 'image/jpeg';
-  
+      const ext = (fileUri.split('.').pop() || 'jpg').toLowerCase();
+      const fileType = mime.getType(fileUri) || (ext === 'png' ? 'image/png' : 'image/jpeg');
+      const fileName = `avatars/${Date.now()}.${ext}`;
+
       const base64 = await FileSystem.readAsStringAsync(fileUri, {
         encoding: FileSystem.EncodingType.Base64,
       });
-  
-      const { data, error } = await supabase.storage
-        .from('avatars')
-        .upload(fileName, base64, {
-          contentType: fileType,
-          upsert: true,
-          cacheControl: '3600',
-          contentEncoding: 'base64',
-        });
-  
+
+      const { error } = await supabase.storage.from('avatars').upload(fileName, base64, {
+        contentType: fileType,
+        upsert: true,
+        cacheControl: '3600',
+        contentEncoding: 'base64',
+      });
       if (error) {
         console.error('Erreur upload Supabase:', error);
         return null;
       }
-  
-      const publicUrl = supabase.storage
-        .from('avatars')
-        .getPublicUrl(fileName).data.publicUrl;
-  
-      return publicUrl;
-    } catch (error) {
-      console.error('Erreur lors de l\'upload:', error);
+
+      const { data } = supabase.storage.from('avatars').getPublicUrl(fileName);
+      return data?.publicUrl ?? null;
+    } catch (e) {
+      console.error('Erreur upload:', e);
       return null;
     }
   };
 
   const handleSubmit = async () => {
-    if (!username || !bio || !avatarUri) {
-      Alert.alert('Veuillez remplir tous les champs');
-      return;
-    }
-  
+    if (!username.trim()) return Alert.alert('Nom d’utilisateur manquant');
+    if (!bio.trim()) return Alert.alert('Bio manquante');
+    if (!avatarUri) return Alert.alert('Choisis une photo de profil');
+
     setIsSubmitting(true);
-  
     try {
-      const { data: userData, error: userError } = await supabase.auth.getUser();
-  
+      const { data: userData } = await supabase.auth.getUser();
       if (!userData?.user) {
-        Alert.alert('Erreur', 'Tu dois être connecté pour envoyer une photo.');
-        setIsSubmitting(false);
+        Alert.alert('Tu dois être connecté pour créer un profil.');
         return;
       }
-  
+
       const avatar_url = await uploadToSupabase(avatarUri);
       if (!avatar_url) {
         Alert.alert('Échec du téléchargement de la photo');
-        setIsSubmitting(false);
         return;
       }
-  
+
       const res = await fetch(`${API_URL}/users/`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          username,
-          avatar_url,
-          bio,
-        }),
+        body: JSON.stringify({ username: username.trim(), avatar_url, bio: bio.trim() }),
       });
-  
-      if (res.ok) {
-        Alert.alert('Profil créé avec succès !');
-        setUsername('');
-        setBio('');
-        setAvatarUri(null);
-      } else {
-        const error = await res.json();
-        console.error('Erreur API :', error);
+
+      if (!res.ok) {
+        const txt = await res.text().catch(() => '');
+        console.error('Erreur API :', txt);
         Alert.alert('Erreur lors de la création du profil');
+        return;
       }
+
+      Alert.alert('Profil créé avec succès !');
+      setUsername('');
+      setBio('');
+      setAvatarUri(null);
     } catch (err) {
       console.error('Erreur réseau :', err);
       Alert.alert('Erreur réseau');
@@ -136,104 +123,206 @@ export default function Profiles() {
   return (
     <KeyboardAvoidingView
       style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      behavior={Platform.select({ ios: 'padding', android: undefined })}
     >
-      <Stack.Screen
-                options={{ headerShown: false }}
-              />
-       <View>
-        <Header />
-      </View>
-      <ScrollView contentContainerStyle={styles.form}>
-        <Text style={styles.label}>Nom d'utilisateur</Text>
-        <TextInput
-          value={username}
-          onChangeText={setUsername}
-          style={styles.input}
-          placeholder="ex: elarif"
-        />
+      <Stack.Screen options={{ headerShown: false }} />
+      <Header />
 
-        <Text style={styles.label}>Bio</Text>
-        <TextInput
-          value={bio}
-          onChangeText={setBio}
-          style={[styles.input, { height: 80 }]}
-          placeholder="Une courte description"
-          multiline
-        />
+      <ScrollView contentContainerStyle={styles.scroll}>
+        {/* Header visuel */}
+        <View style={styles.hero} />
 
-        <Text style={styles.label}>Avatar</Text>
-        <Pressable style={styles.avatarPicker} onPress={pickImage}>
-          {avatarUri ? (
-            <Image source={{ uri: avatarUri }} style={styles.avatarPreview} />
-          ) : (
-            <Text style={styles.avatarPlaceholder}>Choisir une photo</Text>
-          )}
-        </Pressable>
+        {/* Avatar rond centré */}
+        <View style={styles.avatarWrap}>
+          <Pressable style={styles.avatarBtn} onPress={pickImage}>
+            <View style={styles.avatarRing}>
+              {avatarUri ? (
+                <Image source={{ uri: avatarUri }} style={styles.avatar} />
+              ) : (
+                <View style={styles.avatarPlaceholder}>
+                  <Ionicons name="person" size={46} color="#9AA0A6" />
+                </View>
+              )}
+            </View>
+            <View style={styles.cameraPill}>
+              <Ionicons name="camera" size={14} color="#fff" />
+              <Text style={styles.cameraPillTxt}>Changer</Text>
+            </View>
+          </Pressable>
+        </View>
 
+        {/* Bloc infos éditables */}
+        <View style={styles.card}>
+          <Text style={styles.sectionTitle}>Profil</Text>
+
+          <Text style={styles.label}>Nom d’utilisateur</Text>
+          <TextInput
+            style={styles.input}
+            value={username}
+            onChangeText={setUsername}
+            placeholder="ex: elarif"
+            autoCapitalize="none"
+            maxLength={30}
+          />
+
+          <Text style={[styles.label, { marginTop: 16 }]}>Bio</Text>
+          <TextInput
+            style={[styles.input, styles.textarea]}
+            value={bio}
+            onChangeText={(t) => t.length <= BIO_MAX && setBio(t)}
+            placeholder="Une courte description…"
+            multiline
+          />
+          <Text style={styles.helper}>{bio.length}/{BIO_MAX}</Text>
+        </View>
+
+        {/* Divider */}
+        <View style={styles.divider} />
+
+        {/* Gamification placeholder */}
+        <View style={styles.card}>
+          <Text style={styles.sectionTitle}>Statistique</Text>
+          <View style={styles.badgesRow}>
+            <View style={styles.badge}>
+              <Ionicons name="trophy" size={20} color="#ED254E" />
+              <Text style={styles.badgeTxt}>Niveau 1</Text>
+            </View>
+            <View style={styles.badge}>
+              <Ionicons name="star" size={20} color="#ED254E" />
+              <Text style={styles.badgeTxt}>Score 0</Text>
+            </View>
+            <View style={styles.badge}>
+              <Ionicons name="ribbon" size={20} color="#ED254E" />
+              <Text style={styles.badgeTxt}>0 médailles</Text>
+            </View>
+          </View>
+        </View>
+
+        <View style={{ height: 100 }} />
+      </ScrollView>
+
+      {/* Bouton Enregistrer fixé bas */}
+      <View style={styles.footer}>
         <Pressable
           onPress={handleSubmit}
           style={({ pressed }) => [
-            styles.button,
-            pressed && { backgroundColor: 'rgba(179, 29, 59, 0.8)' },
+            styles.saveBtn,
+            pressed && { opacity: 0.9 },
+            isSubmitting && { opacity: 0.6 },
           ]}
           disabled={isSubmitting}
         >
-          <Text style={styles.buttonText}>
-            {isSubmitting ? 'Envoi en cours...' : 'Créer le profil'}
-          </Text>
+          <Ionicons name="checkmark" size={18} color="#fff" />
+          <Text style={styles.saveTxt}>{isSubmitting ? 'Enregistrement…' : 'Enregistrer'}</Text>
         </Pressable>
-      </ScrollView>
+      </View>
     </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    width: '100%',
-    backgroundColor: '#F7F7FF',
+  container: { backgroundColor: '#f7f7ff' },
+  scroll: { paddingBottom: 20 , backgroundColor: '#F7F7FF'},
+  hero: {
+    height: 100,
   },
-  form: { padding: 20 },
-  label: {
-    fontWeight: 'bold',
-    marginTop: 20,
+  avatarWrap: {
+    alignItems: 'center',
+    marginTop: -46, // chevauche le header
     marginBottom: 6,
-    fontSize: 16,
   },
+  avatarBtn: { alignItems: 'center' },
+  avatarRing: {
+    width: 108, height: 108, borderRadius: 54,
+    padding: 4,
+    backgroundColor: '#fff',
+    elevation: 4,
+    shadowColor: '#000', shadowOpacity: 0.15, shadowRadius: 10, shadowOffset: { width: 0, height: 4 },
+  },
+  avatar: { width: '100%', height: '100%', borderRadius: 50 },
+  avatarPlaceholder: {
+    flex: 1,
+    borderRadius: 50,
+    backgroundColor: '#E5E7EB',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cameraPill: {
+    marginTop: 8,
+    backgroundColor: '#ED254E',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 999,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  cameraPillTxt: { color: '#fff', fontWeight: '600', fontSize: 12 },
+
+  card: {
+    backgroundColor: '#fff',
+    marginHorizontal: 16,
+    marginTop: 14,
+    borderRadius: 14,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(0,0,0,0.06)',
+    shadowColor: '#000',
+    shadowOpacity: 0.06,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 2,
+  },
+  sectionTitle: { fontSize: 16, fontWeight: '700', marginBottom: 10 },
+  label: { fontSize: 13, opacity: 0.8, marginBottom: 6 },
   input: {
     borderWidth: 1,
-    borderColor: '#ccc',
+    borderColor: '#E5E7EB',
+    backgroundColor: '#F9FAFB',
     paddingHorizontal: 12,
     paddingVertical: 10,
-    borderRadius: 8,
-    fontSize: 16,
+    borderRadius: 10,
+    fontSize: 15,
   },
-  avatarPicker: {
-    borderWidth: 1,
-    borderColor: '#ccc',
-    borderRadius: 8,
-    height: 120,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 20,
-    overflow: 'hidden',
-  },
-  avatarPreview: {
-    width: '100%',
-    height: '100%',
+  textarea: { minHeight: 90, textAlignVertical: 'top' },
+  helper: { alignSelf: 'flex-end', marginTop: 6, fontSize: 12, color: '#6B7280' },
 
+  divider: {
+    height: 1,
+    backgroundColor: '#E5E7EB',
+    marginHorizontal: 16,
+    marginTop: 16,
+    opacity: 0.7,
   },
-  avatarPlaceholder: {
-    color: '#555',
-    fontSize: 16,
-  },
-  button: {
-    marginTop: 30,
-    backgroundColor: 'rgba(237, 37, 78, 0.8)',
-    paddingVertical: 14,
-    borderRadius: 8,
+
+  badgesRow: { flexDirection: 'row', gap: 10 },
+  badge: {
+    backgroundColor: '#FEF2F2',
+    borderColor: '#FECACA',
+    borderWidth: 1,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 12,
     alignItems: 'center',
+    gap: 6,
   },
-  buttonText: { color: '#fff', fontWeight: 'bold', fontSize: 16 },
+  badgeTxt: { fontWeight: '600', color: '#111827' },
+
+  footer: {
+    position: 'absolute',
+    left: 0, right: 0, bottom: 0,
+    padding: 12,
+    backgroundColor: 'rgba(247,247,255,0.9)',
+    borderTopWidth: 1, borderTopColor: '#E5E7EB',
+  },
+  saveBtn: {
+    backgroundColor: '#ED254E',
+    height: 48,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'row',
+    gap: 8,
+  },
+  saveTxt: { color: '#fff', fontWeight: '700', fontSize: 16 },
 });
