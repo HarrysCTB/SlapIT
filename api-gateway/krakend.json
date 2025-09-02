@@ -148,6 +148,14 @@
       ]
     },
     {
+      "endpoint": "/users/{auth_id}/stickers",
+      "method": "GET",
+      "output_encoding": "json",
+      "backend": [
+        { "host": ["http://slapit-backend:8000"], "url_pattern": "/users/{auth_id}/stickers", "method": "GET" }
+      ]
+    },
+    {
       "endpoint": "/health",
       "method": "GET",
       "output_encoding": "json",

@@ -1,9 +1,11 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException, Query
 from app.schemas.user import ProfileResponse
 from app.models.user import ProfileCreate
 from supabase import Client
 from app.core.database import get_db
 from app.services.user_service import create_profile
+from postgrest.exceptions import APIError
+from uuid import UUID
 
 router = APIRouter()
 
@@ -60,3 +62,30 @@ def get_profile(auth_id: str, supabase: Client = Depends(get_db)):
             status_code=500,
             detail=f"Erreur lors de la récupération du profil: {str(e)}"
         )
+
+@router.get("/{auth_id}/stickers")
+def get_stickers_for_user(
+    auth_id: UUID,
+    limit: int = Query(100, ge=1, le=500),
+    offset: int = Query(0, ge=0),
+    supabase: Client = Depends(get_db)
+):
+    """
+    Récupérer tous les stickers d'un utilisateur donné (auth_id).
+    """
+    try:
+        query = (
+            supabase
+            .table("stickers")
+            .select("*")
+            .eq("auth_id", str(auth_id))
+            .order("created_at", desc=True)
+            .range(offset, offset + limit - 1)
+        )
+        res = query.execute()
+        return res.data or []
+
+    except APIError as e:
+        raise HTTPException(status_code=400, detail=e.message or "Query failed")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
