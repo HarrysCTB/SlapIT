@@ -2,8 +2,8 @@ name: CI/CD
 
 on:
   push:
-    branches: [main]
-  workflow_dispatch:
+    branches: [ main ]
+  workflow_dispatch: {}
 
 permissions:
   contents: read
@@ -17,20 +17,20 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Owner (lowercase)
+      - name: Normalize owner name
         id: vars
         run: echo "owner_lc=${GITHUB_REPOSITORY_OWNER,,}" >> $GITHUB_OUTPUT
 
-      # 1) LOGIN GHCR AVANT DE BUILDER/PUSHER
-      - name: Login to GHCR (for push)
+      # 1) Login GHCR (runner) AVANT build & push
+      - name: Login GHCR
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      # 2) BUILD + PUSH
-      - name: Build & Push backend image
+      # 2) Build & push image
+      - name: Build & push backend image to GHCR
         uses: docker/build-push-action@v6
         with:
           context: ./backend
@@ -38,7 +38,7 @@ jobs:
           tags: ghcr.io/${{ steps.vars.outputs.owner_lc }}/slapit-backend:latest
           provenance: false
 
-      # 3) UPLOAD DU CODE SUR LE VPS
+      # 3) Upload des fichiers vers le VPS
       - name: Upload repo to VPS
         uses: appleboy/scp-action@v0.1.7
         with:
@@ -52,13 +52,15 @@ jobs:
           timeout: 60s
           command_timeout: 10m
 
-      # 4) DEPLOY SUR LE VPS
+      # 4) Déploiement sur le VPS
       - name: Deploy on VPS
         uses: appleboy/ssh-action@v1.2.0
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
-          GHCR_PAT: ${{ secrets.GHCR_PAT }}   # <-- PAT perso (write:packages)
+          GHCR_PAT: ${{ secrets.GHCR_PAT }}             # <- crée ce secret si tu utilises un PAT côté VPS
+          OWNER_LC: ${{ steps.vars.outputs.owner_lc }}  # <- on passe aussi l’owner en minuscule
+          GITHUB_ACTOR: ${{ github.actor }}             # utile pour docker login fallback
         with:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
@@ -67,13 +69,15 @@ jobs:
           timeout: 120s
           command_timeout: 15m
           script_stop: true
+          # TRÈS IMPORTANT: liste des variables à exporter dans la session SSH
+          envs: SUPABASE_URL,SUPABASE_KEY,GHCR_PAT,OWNER_LC,GITHUB_ACTOR
           script: |
             set -euo pipefail
+
             APP_DIR="/home/${{ secrets.VPS_USER }}/apps/slapit"
             cd "$APP_DIR"
 
-            # Forcer l’image en latest (owner en minuscules)
-            OWNER_LC="$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')"
+            # Pointez l'image du backend vers GHCR en latest
             sed -i "s|image: .*slapit-backend.*|image: ghcr.io/${OWNER_LC}/slapit-backend:latest|g" docker-compose.yml || true
 
             # .env backend
@@ -84,9 +88,12 @@ jobs:
               echo "ENV=production"
             } > backend/.env
 
-            # LOGIN GHCR côté VPS avec PAT (PAS le GITHUB_TOKEN)
-            echo "${GHCR_PAT}" | docker login ghcr.io -u "${{ steps.vars.outputs.owner_lc }}" --password-stdin
+            # Login GHCR côté VPS :
+            if [ -n "${GHCR_PAT:-}" ]; then
+              echo "${GHCR_PAT}" | docker login ghcr.io -u "${GITHUB_ACTOR}" --password-stdin || true
+            fi
 
+            # Déploiement
             docker compose pull
             docker compose up -d --remove-orphans
             docker system prune -f
