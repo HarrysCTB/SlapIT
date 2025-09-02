@@ -1,4 +1,4 @@
-name: CI/CD
+name: CI/CD Backend
 
 on:
   push:
@@ -16,8 +16,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      # 1) Build & push image backend sur GHCR
-      - name: Login GHCR
+      - name: Login to GHCR
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
@@ -32,26 +31,14 @@ jobs:
           docker build -t "$IMAGE" ./backend
           docker push "$IMAGE"
 
-      # 2) Copier le repo sur le VPS (SCP)
-      - name: Upload repo to VPS (SCP)
-        uses: appleboy/scp-action@v0.1.7
-        with:
-          host: ${{ secrets.VPS_HOST }}
-          username: ${{ secrets.VPS_USER }}
-          key: ${{ secrets.VPS_SSH_KEY }}
-          port: 22
-          source: "."
-          target: "/home/${{ secrets.VPS_USER }}/apps/slapit"
-          overwrite: true
-          strip_components: 0
-
-      # 3) Lancer docker compose à distance
-      - name: Remote docker compose up
+      # Déploiement SSH: pas de copie de fichiers, juste compose pull/up
+      - name: Deploy via SSH (docker compose pull & up)
         uses: appleboy/ssh-action@v1.2.0
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
-          GHCR_PAT: ${{ secrets.GHCR_PAT }} # optionnel
+          # Si ton image GHCR est privée, crée un PAT dans secrets.GHCR_PAT
+          GHCR_PAT: ${{ secrets.GHCR_PAT }}
         with:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
@@ -63,26 +50,22 @@ jobs:
             APP_DIR="/home/${{ secrets.VPS_USER }}/apps/slapit"
             cd "$APP_DIR"
 
-            # .env backend à jour
-            mkdir -p backend
-            cat > backend/.env <<'EOF'
-            SUPABASE_URL=${SUPABASE_URL}
-            SUPABASE_KEY=${SUPABASE_KEY}
-            ENV=production
-            EOF
-
-            # (Optionnel) login GHCR côté VPS si l'image est privée
-            if [ -n "${GHCR_PAT:-}" ]; then
-              echo "${GHCR_PAT}" | docker login ghcr.io -u "${GITHUB_ACTOR}" --password-stdin
-            fi
-
-            # Forcer le nom d'image GHCR en :latest dans compose (si besoin)
-            OWNER_LC=$(echo "${GITHUB_REPOSITORY_OWNER}" | tr '[:upper:]' '[:lower:]')
+            OWNER_LC=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
             sed -i "s|image: .*slapit-backend.*|image: ghcr.io/${OWNER_LC}/slapit-backend:latest|g" docker-compose.yml || true
 
-            # Pull & Up
+            mkdir -p backend
+            {
+              echo "SUPABASE_URL=${SUPABASE_URL}"
+              echo "SUPABASE_KEY=${SUPABASE_KEY}"
+              echo "ENV=production"
+            } > backend/.env
+
+            if [ -n "${GHCR_PAT:-}" ]; then
+              echo "${GHCR_PAT}" | docker login ghcr.io -u "${{ github.repository_owner }}" --password-stdin
+            fi
+
             docker compose pull
             docker compose up -d --remove-orphans
 
-            # Optionnel: nettoyage
+            # Un petit ménage
             docker system prune -f
