@@ -96,7 +96,14 @@
           "host": ["http://slapit-backend:8000"],
           "url_pattern": "/stickers/",
           "method": "POST",
-          "headers_to_pass": ["Authorization", "Content-Type", "Accept"]
+          "headers_to_pass": ["Authorization", "Content-Type", "Accept"],
+          "extra_config": {
+            "github.com/devopsfaith/krakend/http": {
+              "allowed_status_codes": [200, 201, 204],
+              "return_error_details": true,
+              "return_complete_error": true
+            }
+          }
         }
       ]
     },

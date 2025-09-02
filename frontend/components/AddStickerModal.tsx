@@ -19,9 +19,10 @@ type Props = {
   onClose: () => void;
   onSuccess?: () => void;
   defaultCommunityId?: string | null;
-  authId?: string;
   bucketName?: string; // 'avatars' ou 'stickers'
 };
+
+const API_URL = 'http://87.106.230.12:8080';
 
 export default function AddStickerModal({
   visible,
@@ -63,13 +64,12 @@ export default function AddStickerModal({
       new Promise<T>((_, rej) => setTimeout(() => rej(new Error(`${label} timeout après ${ms}ms`)), ms)),
     ]);
 
-  const safeSet = <K extends keyof StateLike>(setter: (v: any) => void, v: any) => {
+  const safeSet = (setter: (v: any) => void, v: any) => {
     if (isMounted.current) setter(v);
   };
-  type StateLike = { [k: string]: any };
 
   const postSticker = (payload: any, signal: AbortSignal) =>
-    fetch('http://87.106.230.12:8080/stickers/', {
+    fetch(`${API_URL}/stickers/`, {
       method: 'POST',
       headers: { accept: 'application/json', 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
@@ -84,13 +84,44 @@ export default function AddStickerModal({
     return bytes;
   };
 
+  // ---------- auto-récup communauté du user à l’ouverture ----------
+  useEffect(() => {
+    if (!visible) return;
+
+    // si on t’a fourni une communauté par défaut, on la garde
+    if (defaultCommunityId) {
+      setCommunityId(defaultCommunityId);
+      return;
+    }
+
+    let cancelled = false;
+    (async () => {
+      try {
+        // récup user supabase
+        const { data: userData } = await supabase.auth.getUser();
+        const userId = userData?.user?.id;
+        if (!userId) return;
+
+        const res = await fetch(`${API_URL}/users/${userId}`);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const json = await res.json(); // on attend { community_id?: string }
+
+        if (!cancelled && json?.community_id) {
+          setCommunityId(json.community_id);
+        }
+      } catch (e) {
+        console.warn('fetch /users/:id failed:', (e as any)?.message || e);
+      }
+    })();
+
+    return () => { cancelled = true; };
+  }, [visible, defaultCommunityId]);
+
   // ---------- localisation (timeout + fallback) ----------
   useEffect(() => {
     if (!visible) return;
-    setCommunityId(defaultCommunityId ?? '');
 
     let didCancel = false;
-
     (async () => {
       try {
         const { status } = await Location.requestForegroundPermissionsAsync();
@@ -110,7 +141,9 @@ export default function AddStickerModal({
             setLng(loc.coords.longitude);
             return;
           }
-        } catch { /* fallback below */ }
+        } catch {
+          // fallback
+        }
 
         const last = await Location.getLastKnownPositionAsync();
         if (!didCancel && last) {
@@ -128,7 +161,7 @@ export default function AddStickerModal({
     })();
 
     return () => { didCancel = true; };
-  }, [visible, defaultCommunityId]);
+  }, [visible]);
 
   // ---------- permissions média ----------
   const ensureMediaPermissions = async () => {
@@ -143,13 +176,11 @@ export default function AddStickerModal({
 
   // ---------- capture/sélection (base64 + compression) ----------
   const prepareImage = async (uri: string) => {
-    // compression pour réduire la taille mémoire/temps upload
     const manipulated = await ImageManipulator.manipulateAsync(
       uri,
       [{ resize: { width: 1600 } }],
       { compress: 0.8, format: ImageManipulator.SaveFormat.JPEG, base64: true }
     );
-    // on renvoie un asset "like" avec base64 dispo
     return {
       uri: manipulated.uri,
       width: manipulated.width,
@@ -182,7 +213,6 @@ export default function AddStickerModal({
 
   // ---------- upload supabase ----------
   const uploadToSupabase = async (asset: ImagePicker.ImagePickerAsset, userId: string): Promise<string> => {
-    // on essaye base64 direct (compressé), sinon fallback lecture FS
     let b64 = (asset as any).base64 as string | undefined;
     if (!b64) {
       const b64FromFs = await FileSystem.readAsStringAsync(asset.uri, {
@@ -193,10 +223,10 @@ export default function AddStickerModal({
     if (!b64) throw new Error('Image base64 introuvable');
 
     const bytes = base64ToUint8Array(b64);
-
     const ext = (asset.fileName?.split('.').pop() || 'jpg').toLowerCase();
     const contentType = (asset as any).mimeType || (ext === 'png' ? 'image/png' : 'image/jpeg');
-    // ⬇️ on utilise l'id de l'utilisateur pour ranger l'image
+
+    // ranger par user
     const path = `stickers/${userId}/${Date.now()}.${ext}`;
 
     const { error } = await supabase.storage.from(bucketName).upload(path, bytes, {
@@ -209,7 +239,7 @@ export default function AddStickerModal({
     if (!data?.publicUrl) throw new Error('Impossible de générer l’URL publique');
 
     // libère la mémoire base64 dès que possible
-    if (isMounted.current) setImage((prev) => (prev ? { ...prev, base64: undefined } as any : prev));
+    safeSet(setImage, (prev: any) => (prev ? { ...prev, base64: undefined } : prev));
 
     return data.publicUrl;
   };
@@ -230,40 +260,41 @@ export default function AddStickerModal({
     try {
       setLoading(true);
 
-      // 🔑 Récupère l'utilisateur courant Supabase
-      const { data: userData, error } = await supabase.auth.getUser();
+      // 🔑 user courant
+      const { data: userData, error: authErr } = await supabase.auth.getUser();
       const userId = userData?.user?.id;
-      if (error || !userId) {
+      if (authErr || !userId) {
         Alert.alert('Erreur', 'Utilisateur non connecté.');
+        setLoading(false);
         return;
       }
 
-      // 1) Upload (timeout 45s) — on passe userId
+      // Upload image (timeout 45s)
       const publicUrl = await withTimeout(uploadToSupabase(image, userId), 45000, 'Upload');
 
-      // 2) POST avec Abort + timeout 25s + 1 retry
+      // POST avec Abort + timeout 25s (+1 retry si 5xx)
       abortRef.current?.abort();
       const controller = new AbortController();
       abortRef.current = controller;
 
       if (!communityId || !communityId.trim()) {
         Alert.alert('Communauté requise', 'Choisis une communauté avant de publier.');
+        setLoading(false);
         return;
       }
 
       const payload = {
-        community_id: communityId.trim(),     // doit être un UUID (string) valide
+        community_id: communityId.trim(), // UUID valide attendu
         title: title.trim(),
         description: description.trim(),
         image_url: publicUrl,
         long: Number(lng),
         lat: Number(lat),
-        auth_id: userId,                      // ✅ l’UUID Supabase Auth du user courant
+        auth_id: userId,                  // UUID supabase
       };
 
       let res = await withTimeout(postSticker(payload, controller.signal), 25000, 'POST /stickers');
       if (!res.ok && res.status >= 500) {
-        // retry unique si code >=500 (réseau lent/serveur)
         res = await withTimeout(postSticker(payload, controller.signal), 25000, 'POST /stickers (retry)');
       }
       if (!res.ok) {
