@@ -150,7 +150,7 @@
     {
       "endpoint": "/users/{auth_id}/stickers",
       "method": "GET",
-      "output_encoding": "json",
+      "output_encoding": "no-op",
       "backend": [
         { "host": ["http://slapit-backend:8000"], "url_pattern": "/users/{auth_id}/stickers", "method": "GET" }
       ]
