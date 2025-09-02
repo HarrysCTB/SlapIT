@@ -79,6 +79,12 @@ jobs:
 
             # Pointez l'image du backend vers GHCR en latest
             sed -i "s|image: .*slapit-backend.*|image: ghcr.io/${OWNER_LC}/slapit-backend:latest|g" docker-compose.yml || true
+                  # Corriger les images officielles pour éviter "manifest unknown"
+            sed -i 's|^[[:space:]]*image:[[:space:]]*promtail.*$|    image: grafana/promtail:2.9.0|' docker-compose.yml
+            sed -i 's|^[[:space:]]*image:[[:space:]]*loki.*$|    image: grafana/loki:2.9.0|' docker-compose.yml
+            sed -i 's|^[[:space:]]*image:[[:space:]]*grafana.*$|    image: grafana/grafana:10.4.5|' docker-compose.yml
+            sed -i 's|^[[:space:]]*image:[[:space:]]*prometheus.*$|    image: prom/prometheus:v2.54.1|' docker-compose.yml
+            sed -i 's|^[[:space:]]*image:[[:space:]]*krakend.*$|    image: devopsfaith/krakend:2.6.2|' docker-compose.yml
 
             # .env backend
             mkdir -p backend
