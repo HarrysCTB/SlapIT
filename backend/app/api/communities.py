@@ -69,6 +69,30 @@ def create_community(community: CommunityCreate, supabase: Client = Depends(get_
 
     return CommunityResponse(**data)
 
+
+@router.get("/{community_id}")
+def get_community(community_id: UUID, supabase: Client = Depends(get_db)):
+    """
+    Récupère une communauté par son ID.
+    Renvoie au minimum { id, name } en 200, ou 404 si introuvable.
+    """
+    try:
+        res = (
+            supabase.table("communities")
+            .select("id,name,description,created_at")  # adapte les colonnes
+            .eq("id", str(community_id))
+            .single()
+            .execute()
+        )
+        if not res.data:
+            raise HTTPException(status_code=404, detail="Communauté introuvable")
+        return res.data
+    except HTTPException:
+        raise
+    except Exception as e:
+        # Toujours renvoyer du JSON (Krakend n’aime pas les bodies vides)
+        raise HTTPException(status_code=500, detail=str(e))
+
 @router.post("/{community_id}/join")
 def join_community(
     community_id: UUID,
