@@ -63,7 +63,7 @@ def get_profile(auth_id: str, supabase: Client = Depends(get_db)):
             detail=f"Erreur lors de la récupération du profil: {str(e)}"
         )
 
-@router.put("/users/{auth_id}", response_model=ProfileResponse)
+@router.put("/{auth_id}", response_model=ProfileResponse)
 def update_profile(auth_id: str, profile: ProfileCreate, supabase: Client = Depends(get_db)):
     payload = {
         "username": profile.username,
