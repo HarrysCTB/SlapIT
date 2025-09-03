@@ -53,31 +53,44 @@ export default function Profiles() {
       Alert.alert("Permission refusée", "Tu dois autoriser l'accès à la galerie.");
       return;
     }
+
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsEditing: true,
       aspect: [1, 1],
       quality: 0.8,
     });
+
     if (!result.canceled) setAvatarUri(result.assets[0].uri);
   };
 
   // Upload vers Supabase Storage (avatars) et renvoie l’URL publique
+  const base64ToUint8Array = (base64: string) => {
+    const binary = global.atob ? atob(base64) : Buffer.from(base64, 'base64').toString('binary');
+    const len = binary.length;
+    const bytes = new Uint8Array(len);
+    for (let i = 0; i < len; i++) bytes[i] = binary.charCodeAt(i);
+    return bytes;
+  };
+
   const uploadToSupabase = async (fileUri: string): Promise<string | null> => {
     try {
-      const ext = (fileUri.split('.').pop() || 'jpg').toLowerCase();
-      const fileType = mime.getType(fileUri) || (ext === 'png' ? 'image/png' : 'image/jpeg');
+      // type & extension
+      const mimeType = mime.getType(fileUri) || 'image/jpeg';
+      const ext = (mime.getExtension(mimeType) || 'jpg').toLowerCase();
       const fileName = `avatars/${Date.now()}.${ext}`;
 
+      // lire en base64 puis convertir en octets
       const base64 = await FileSystem.readAsStringAsync(fileUri, {
         encoding: FileSystem.EncodingType.Base64,
       });
+      const bytes = base64ToUint8Array(base64);
 
-      const { error } = await supabase.storage.from('avatars').upload(fileName, base64, {
-        contentType: fileType,
+      // UPLOAD: on envoie des octets, SANS contentEncoding: 'base64'
+      const { error } = await supabase.storage.from('avatars').upload(fileName, bytes, {
+        contentType: mimeType,
         upsert: true,
         cacheControl: '3600',
-        contentEncoding: 'base64',
       });
       if (error) {
         console.error('Erreur upload Supabase:', error);
@@ -305,13 +318,20 @@ const styles = StyleSheet.create({
   scroll: { paddingBottom: 20, backgroundColor: '#F7F7FF' },
   hero: {
     height: 100,
+    pointerEvents: 'none',
   },
   avatarWrap: {
     alignItems: 'center',
     marginTop: -46,
     marginBottom: 6,
+    zIndex: 10,
   },
-  avatarBtn: { alignItems: 'center' },
+  avatarBtn: {
+    alignItems: 'center',
+    // pour Android, le zIndex nécessite souvent position
+    position: 'relative',
+    zIndex: 10,
+  },
   avatarRing: {
     width: 108, height: 108, borderRadius: 54,
     padding: 4,

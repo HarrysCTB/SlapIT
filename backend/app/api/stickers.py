@@ -10,8 +10,7 @@ from app.schemas.sticker import StickerResponse
 router = APIRouter()
 
 @router.post("/", response_model=StickerResponse)
-def add_sticker(sticker: StickerCreate, supabase = Depends(get_db)):
-    # Normalisation/validation rapide
+def add_sticker(sticker: StickerCreate, supabase=Depends(get_db)):
     community_id = str(sticker.community_id) if isinstance(sticker.community_id, UUID) else str(sticker.community_id or "")
     auth_id      = str(sticker.auth_id)      if isinstance(sticker.auth_id, UUID)      else str(sticker.auth_id or "")
 
@@ -33,14 +32,28 @@ def add_sticker(sticker: StickerCreate, supabase = Depends(get_db)):
     }
 
     try:
-        supabase.table("stickers").insert(data).execute()  # ✅ pas de .select() ici
+        # 1️⃣ insertion du sticker
+        supabase.table("stickers").insert(data).execute()
+
+        # 2️⃣ récupération du profil utilisateur
+        profile_res = supabase.table("profiles").select("total_stickers, score").eq("auth_id", auth_id).single().execute()
+        if not profile_res.data:
+            raise HTTPException(status_code=404, detail="Profil non trouvé")
+
+        current_stickers = profile_res.data.get("total_stickers") or 0
+        current_score = profile_res.data.get("score") or 0
+
+        # 3️⃣ mise à jour avec +1 et +10
+        supabase.table("profiles").update({
+            "total_stickers": current_stickers + 1,
+            "score": current_score + 10
+        }).eq("auth_id", auth_id).execute()
+
     except APIError as e:
-        # souvent FK cassée (auth_id/communauté inexistante) ou UUID invalide
         raise HTTPException(status_code=400, detail=e.message or "Insert failed")
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-    # ✅ 200 pour KrakenD
     return JSONResponse(status_code=200, content={"ok": True, "id": new_id})
 
 @router.get("/{sticker_id}", response_model=StickerResponse)

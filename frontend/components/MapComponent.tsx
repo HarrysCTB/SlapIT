@@ -215,7 +215,7 @@ const styles = StyleSheet.create({
 
   modalBackdrop: {
     flex: 1,
-    justifyContent: 'flex-end',
+    justifyContent: 'center',
   },
   modalCard: {
     margin: 12,
@@ -225,8 +225,6 @@ const styles = StyleSheet.create({
     gap: 8,
     maxHeight: '70%',
     overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: '#ccc'
   },
   modalImage: {
     width: '100%',
