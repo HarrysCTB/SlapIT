@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { BlurView } from 'expo-blur';
 import {
   StyleSheet,
   ActivityIndicator,
@@ -12,6 +13,7 @@ import {
 import MapView, { UrlTile, Marker } from 'react-native-maps';
 import * as Location from 'expo-location';
 import { useAuth } from '@/hooks/useAuth';
+import { useColorScheme } from '@/hooks/useColorScheme';
 
 const API_URL = 'http://87.106.230.12:8080';
 
@@ -36,6 +38,7 @@ type Sticker = {
 
 export default function OSMMap() {
   const { user } = useAuth();
+  const colorScheme = useColorScheme();
   const [region, setRegion] = useState<Region | null>(null);
   const [loadingRegion, setLoadingRegion] = useState(true);
 
@@ -149,6 +152,9 @@ export default function OSMMap() {
         onRequestClose={() => setSelected(null)}
       >
         <View style={styles.modalBackdrop}>
+          {/* ⬇️ Ajoute le blur */}
+          <BlurView intensity={50} tint={colorScheme === 'dark' ? 'dark' : 'light'} style={StyleSheet.absoluteFill} />
+
           <View style={styles.modalCard}>
             {!!selected?.image_url && (
               <Image source={{ uri: selected.image_url }} style={styles.modalImage} />
@@ -209,7 +215,6 @@ const styles = StyleSheet.create({
 
   modalBackdrop: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.35)',
     justifyContent: 'flex-end',
   },
   modalCard: {
@@ -220,6 +225,8 @@ const styles = StyleSheet.create({
     gap: 8,
     maxHeight: '70%',
     overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: '#ccc'
   },
   modalImage: {
     width: '100%',
@@ -239,7 +246,7 @@ const styles = StyleSheet.create({
   modalBtn: {
     marginTop: 8,
     alignSelf: 'flex-end',
-    backgroundColor: '#0a7ea4',
+    backgroundColor: '#ED254E',
     borderRadius: 10,
     paddingHorizontal: 14,
     paddingVertical: 10,

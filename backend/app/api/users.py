@@ -63,6 +63,27 @@ def get_profile(auth_id: str, supabase: Client = Depends(get_db)):
             detail=f"Erreur lors de la récupération du profil: {str(e)}"
         )
 
+@router.put("/{auth_id}", response_model=ProfileResponse)
+def update_profile(auth_id: UUID, profile: ProfileCreate, supabase: Client = Depends(get_db)):
+    try:
+        res = (
+            supabase.table("profiles")
+            .update({
+                "username": profile.username,
+                "avatar_url": profile.avatar_url,
+                "bio": profile.bio,
+            })
+            .eq("auth_id", str(auth_id))
+            .select("*")
+            .single()
+            .execute()
+        )
+        if not res.data:
+            raise HTTPException(status_code=404, detail="Profil non trouvé")
+        return res.data
+    except APIError as e:
+        raise HTTPException(status_code=400, detail=e.message or "Update failed")
+
 @router.get("/{auth_id}/stickers")
 def get_stickers_for_user(
     auth_id: UUID,

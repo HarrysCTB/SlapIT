@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Stack } from 'expo-router';
 import {
   View,
@@ -11,6 +11,7 @@ import {
   Platform,
   ScrollView,
   Image,
+  ActivityIndicator,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from 'expo-file-system';
@@ -22,31 +23,46 @@ import Header from '@/components/Header';
 const API_URL = 'http://87.106.230.12:8080';
 const BIO_MAX = 200;
 
+type Profile = {
+  id: number;
+  auth_id: string;
+  username: string | null;
+  avatar_url: string | null;
+  bio: string | null;
+  community_id: string | null;
+  is_admin: boolean | null;
+  total_stickers: number | null;
+  score: number | null;
+  created_at: string;
+};
+
 export default function Profiles() {
   const [username, setUsername] = useState('');
   const [bio, setBio] = useState('');
   const [avatarUri, setAvatarUri] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  const [profile, setProfile] = useState<Profile | null>(null);
+  const [initialAvatarUrl, setInitialAvatarUrl] = useState<string | null>(null);
+  const [loadingProfile, setLoadingProfile] = useState(true);
+
+  // Sélection image locale
   const pickImage = async () => {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permission.granted) {
       Alert.alert("Permission refusée", "Tu dois autoriser l'accès à la galerie.");
       return;
     }
-
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsEditing: true,
       aspect: [1, 1],
       quality: 0.8,
     });
-
-    if (!result.canceled) {
-      setAvatarUri(result.assets[0].uri);
-    }
+    if (!result.canceled) setAvatarUri(result.assets[0].uri);
   };
 
+  // Upload vers Supabase Storage (avatars) et renvoie l’URL publique
   const uploadToSupabase = async (fileUri: string): Promise<string | null> => {
     try {
       const ext = (fileUri.split('.').pop() || 'jpg').toLowerCase();
@@ -76,42 +92,100 @@ export default function Profiles() {
     }
   };
 
+  // Charger le profil existant pour préremplir
+  useEffect(() => {
+    (async () => {
+      try {
+        const { data: userData } = await supabase.auth.getUser();
+        const uid = userData?.user?.id;
+        if (!uid) {
+          setLoadingProfile(false);
+          return;
+        }
+
+        const res = await fetch(`${API_URL}/users/${uid}`);
+        if (res.ok) {
+          const p: Profile = await res.json();
+          setProfile(p);
+          setUsername(p.username ?? '');
+          setBio(p.bio ?? '');
+          setAvatarUri(p.avatar_url ?? null);
+          setInitialAvatarUrl(p.avatar_url ?? null);
+        } else if (res.status !== 404) {
+          const txt = await res.text().catch(() => '');
+          console.warn('GET profile non-OK:', res.status, txt);
+        }
+      } catch (e) {
+        console.warn('Erreur GET profile:', e);
+      } finally {
+        setLoadingProfile(false);
+      }
+    })();
+  }, []);
+
+  // Créer ou mettre à jour le profil
   const handleSubmit = async () => {
     if (!username.trim()) return Alert.alert('Nom d’utilisateur manquant');
     if (!bio.trim()) return Alert.alert('Bio manquante');
-    if (!avatarUri) return Alert.alert('Choisis une photo de profil');
 
     setIsSubmitting(true);
     try {
       const { data: userData } = await supabase.auth.getUser();
-      if (!userData?.user) {
-        Alert.alert('Tu dois être connecté pour créer un profil.');
+      const uid = userData?.user?.id;
+      if (!uid) {
+        Alert.alert('Tu dois être connecté pour modifier ton profil.');
         return;
       }
 
-      const avatar_url = await uploadToSupabase(avatarUri);
-      if (!avatar_url) {
-        Alert.alert('Échec du téléchargement de la photo');
-        return;
+      let avatar_url = initialAvatarUrl;
+
+      // Upload uniquement si l’avatar a changé et que c’est un fichier local
+      const isLocal = avatarUri && !/^https?:\/\//i.test(avatarUri);
+      if (isLocal && avatarUri) {
+        const uploaded = await uploadToSupabase(avatarUri);
+        if (!uploaded) {
+          Alert.alert('Échec du téléchargement de la photo');
+          return;
+        }
+        avatar_url = uploaded;
       }
 
-      const res = await fetch(`${API_URL}/users/`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username: username.trim(), avatar_url, bio: bio.trim() }),
+      const body = JSON.stringify({
+        auth_id: uid, // requis pour POST
+        username: username.trim(),
+        avatar_url: avatar_url ?? null,
+        bio: bio.trim(),
       });
+
+      let res: Response;
+      if (profile) {
+        // Update
+        res = await fetch(`${API_URL}/users/${uid}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body,
+        });
+      } else {
+        // Create
+        res = await fetch(`${API_URL}/users`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body,
+        });
+      }
 
       if (!res.ok) {
         const txt = await res.text().catch(() => '');
-        console.error('Erreur API :', txt);
-        Alert.alert('Erreur lors de la création du profil');
+        console.error('Erreur API profil:', res.status, txt);
+        Alert.alert('Erreur lors de la sauvegarde du profil');
         return;
       }
 
-      Alert.alert('Profil créé avec succès !');
-      setUsername('');
-      setBio('');
-      setAvatarUri(null);
+      const saved: Profile = await res.json();
+      setProfile(saved);
+      setInitialAvatarUrl(saved.avatar_url ?? null);
+      setAvatarUri(saved.avatar_url ?? null);
+      Alert.alert('Profil sauvegardé ✅');
     } catch (err) {
       console.error('Erreur réseau :', err);
       Alert.alert('Erreur réseau');
@@ -128,78 +202,84 @@ export default function Profiles() {
       <Stack.Screen options={{ headerShown: false }} />
       <Header />
 
-      <ScrollView contentContainerStyle={styles.scroll}>
-        {/* Header visuel */}
-        <View style={styles.hero} />
-
-        {/* Avatar rond centré */}
-        <View style={styles.avatarWrap}>
-          <Pressable style={styles.avatarBtn} onPress={pickImage}>
-            <View style={styles.avatarRing}>
-              {avatarUri ? (
-                <Image source={{ uri: avatarUri }} style={styles.avatar} />
-              ) : (
-                <View style={styles.avatarPlaceholder}>
-                  <Ionicons name="person" size={46} color="#9AA0A6" />
-                </View>
-              )}
-            </View>
-            <View style={styles.cameraPill}>
-              <Ionicons name="camera" size={14} color="#fff" />
-              <Text style={styles.cameraPillTxt}>Changer</Text>
-            </View>
-          </Pressable>
+      {loadingProfile ? (
+        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#F7F7FF' }}>
+          <ActivityIndicator size="large" />
         </View>
+      ) : (
+        <ScrollView contentContainerStyle={styles.scroll}>
+          {/* Header visuel */}
+          <View style={styles.hero} />
 
-        {/* Bloc infos éditables */}
-        <View style={styles.card}>
-          <Text style={styles.sectionTitle}>Profil</Text>
+          {/* Avatar rond centré */}
+          <View style={styles.avatarWrap}>
+            <Pressable style={styles.avatarBtn} onPress={pickImage}>
+              <View style={styles.avatarRing}>
+                {avatarUri ? (
+                  <Image source={{ uri: avatarUri }} style={styles.avatar} />
+                ) : (
+                  <View style={styles.avatarPlaceholder}>
+                    <Ionicons name="person" size={46} color="#9AA0A6" />
+                  </View>
+                )}
+              </View>
+              <View style={styles.cameraPill}>
+                <Ionicons name="camera" size={14} color="#fff" />
+                <Text style={styles.cameraPillTxt}>Changer</Text>
+              </View>
+            </Pressable>
+          </View>
 
-          <Text style={styles.label}>Nom d’utilisateur</Text>
-          <TextInput
-            style={styles.input}
-            value={username}
-            onChangeText={setUsername}
-            placeholder="ex: elarif"
-            autoCapitalize="none"
-            maxLength={30}
-          />
+          {/* Bloc infos éditables */}
+          <View style={styles.card}>
+            <Text style={styles.sectionTitle}>Profil</Text>
 
-          <Text style={[styles.label, { marginTop: 16 }]}>Bio</Text>
-          <TextInput
-            style={[styles.input, styles.textarea]}
-            value={bio}
-            onChangeText={(t) => t.length <= BIO_MAX && setBio(t)}
-            placeholder="Une courte description…"
-            multiline
-          />
-          <Text style={styles.helper}>{bio.length}/{BIO_MAX}</Text>
-        </View>
+            <Text style={styles.label}>Nom d’utilisateur</Text>
+            <TextInput
+              style={styles.input}
+              value={username}
+              onChangeText={setUsername}
+              placeholder="ex: elarif"
+              autoCapitalize="none"
+              maxLength={30}
+            />
 
-        {/* Divider */}
-        <View style={styles.divider} />
+            <Text style={[styles.label, { marginTop: 16 }]}>Bio</Text>
+            <TextInput
+              style={[styles.input, styles.textarea]}
+              value={bio}
+              onChangeText={(t) => t.length <= BIO_MAX && setBio(t)}
+              placeholder="Une courte description…"
+              multiline
+            />
+            <Text style={styles.helper}>{bio.length}/{BIO_MAX}</Text>
+          </View>
 
-        {/* Gamification placeholder */}
-        <View style={styles.card}>
-          <Text style={styles.sectionTitle}>Statistique</Text>
-          <View style={styles.badgesRow}>
-            <View style={styles.badge}>
-              <Ionicons name="trophy" size={20} color="#ED254E" />
-              <Text style={styles.badgeTxt}>Niveau 1</Text>
-            </View>
-            <View style={styles.badge}>
-              <Ionicons name="star" size={20} color="#ED254E" />
-              <Text style={styles.badgeTxt}>Score 0</Text>
-            </View>
-            <View style={styles.badge}>
-              <Ionicons name="ribbon" size={20} color="#ED254E" />
-              <Text style={styles.badgeTxt}>0 médailles</Text>
+          {/* Divider */}
+          <View style={styles.divider} />
+
+          {/* Gamification placeholder */}
+          <View style={styles.card}>
+            <Text style={styles.sectionTitle}>Statistique</Text>
+            <View style={styles.badgesRow}>
+              <View style={styles.badge}>
+                <Ionicons name="trophy" size={20} color="#ED254E" />
+                <Text style={styles.badgeTxt}>Niveau 1</Text>
+              </View>
+              <View style={styles.badge}>
+                <Ionicons name="star" size={20} color="#ED254E" />
+                <Text style={styles.badgeTxt}>Score {profile?.score ?? 0}</Text>
+              </View>
+              <View style={styles.badge}>
+                <Ionicons name="ribbon" size={20} color="#ED254E" />
+                <Text style={styles.badgeTxt}>{profile?.total_stickers ?? 0} stickers</Text>
+              </View>
             </View>
           </View>
-        </View>
 
-        <View style={{ height: 100 }} />
-      </ScrollView>
+          <View style={{ height: 100 }} />
+        </ScrollView>
+      )}
 
       {/* Bouton Enregistrer fixé bas */}
       <View style={styles.footer}>
@@ -210,7 +290,7 @@ export default function Profiles() {
             pressed && { opacity: 0.9 },
             isSubmitting && { opacity: 0.6 },
           ]}
-          disabled={isSubmitting}
+          disabled={isSubmitting || loadingProfile}
         >
           <Ionicons name="checkmark" size={18} color="#fff" />
           <Text style={styles.saveTxt}>{isSubmitting ? 'Enregistrement…' : 'Enregistrer'}</Text>
@@ -221,14 +301,14 @@ export default function Profiles() {
 }
 
 const styles = StyleSheet.create({
-  container: { backgroundColor: '#f7f7ff' },
-  scroll: { paddingBottom: 20 , backgroundColor: '#F7F7FF'},
+  container: { backgroundColor: '#f7f7ff', flex: 1 },
+  scroll: { paddingBottom: 20, backgroundColor: '#F7F7FF' },
   hero: {
     height: 100,
   },
   avatarWrap: {
     alignItems: 'center',
-    marginTop: -46, // chevauche le header
+    marginTop: -46,
     marginBottom: 6,
   },
   avatarBtn: { alignItems: 'center' },

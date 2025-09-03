@@ -148,6 +148,14 @@
       ]
     },
     {
+      "endpoint": "/users/{auth_id}",
+      "method": "PUT",
+      "output_encoding": "json",
+      "backend": [
+        { "host": ["http://slapit-backend:8000"], "url_pattern": "/users/{auth_id}", "method": "PUT" }
+      ]
+    },
+    {
       "endpoint": "/users/{auth_id}/stickers",
       "method": "GET",
       "output_encoding": "no-op",

@@ -49,7 +49,7 @@ export default function Login() {
               showsHorizontalScrollIndicator={false}
             >
       <View style={styles.card}>
-        <Image source={require('../../assets/images/slapit.png')} style={styles.logo} />
+        <Image source={require('../../assets/images/slapit2.png')} style={styles.logo} />
         <ThemedText style={styles.title}>Connexion</ThemedText>
 
         {/* Champ Email avec label */}

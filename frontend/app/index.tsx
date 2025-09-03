@@ -35,7 +35,7 @@ export default function Home() {
         Slap it, map it, share it !
         </ThemedText>
         <Animated.Image
-          source={require('../assets/images/slapit.png')}
+          source={require('../assets/images/slapit2.png')}
           style={[
             styles.icon,
             {

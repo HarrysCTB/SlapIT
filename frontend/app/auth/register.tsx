@@ -65,8 +65,8 @@ export default function Register() {
           {/* Carte d'inscription avec glassmorphism */}
           <View style={styles.card}>
             <Image 
-              source={require('../../assets/images/slapit.png')} 
-              style={styles.logo} 
+              source={require('../../assets/images/slapit2.png')}
+              style={styles.logo}
             />
             <ThemedText style={styles.title}>Créer un compte</ThemedText>
 
