@@ -180,7 +180,7 @@ export default function Profiles() {
         });
       } else {
         // Create
-        res = await fetch(`${API_URL}/users`, {
+        res = await fetch(`${API_URL}/users/`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body,
