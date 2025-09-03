@@ -152,7 +152,19 @@
       "method": "PUT",
       "output_encoding": "json",
       "backend": [
-        { "host": ["http://slapit-backend:8000"], "url_pattern": "/users/{auth_id}", "method": "PUT" }
+        {
+          "host": ["http://slapit-backend:8000"],
+          "url_pattern": "/users/{auth_id}",
+          "method": "PUT",
+          "headers_to_pass": ["Authorization", "Content-Type", "Accept"],
+          "extra_config": {
+            "github.com/devopsfaith/krakend/http": {
+              "allowed_status_codes": [200, 201, 204, 400, 401, 403, 404, 422, 500],
+              "return_error_details": true,
+              "return_complete_error": true
+            }
+          }
+        }
       ]
     },
     {
