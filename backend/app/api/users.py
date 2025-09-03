@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
-from app.schemas.user import ProfileResponse
+from app.schemas.user import ProfileResponse, ProfileUpdate
 from app.models.user import ProfileCreate
 from supabase import Client
 from app.core.database import get_db
@@ -64,15 +64,14 @@ def get_profile(auth_id: str, supabase: Client = Depends(get_db)):
         )
 
 @router.put("/{auth_id}", response_model=ProfileResponse)
-def update_profile(auth_id: str, profile: ProfileCreate, supabase: Client = Depends(get_db)):
-    payload = {
-        "username": profile.username,
-        "avatar_url": profile.avatar_url,
-        "bio": profile.bio,
-    }
+def update_profile(auth_id: str, profile: ProfileUpdate, supabase: Client = Depends(get_db)):
+    # ne met à jour que les champs fournis
+    payload = profile.model_dump(exclude_unset=True)
+    if not payload:
+        raise HTTPException(status_code=400, detail="No fields to update")
+
     res = supabase.table("profiles").update(payload).eq("auth_id", auth_id).execute()
 
-    # si rien modifié, tenter de lire l’existant (ou renvoyer 404)
     if not res.data:
         existing = supabase.table("profiles").select("*").eq("auth_id", auth_id).single().execute()
         if not existing.data:
