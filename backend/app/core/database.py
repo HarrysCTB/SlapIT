@@ -1,25 +1,28 @@
+# app/core/database.py
 import os
 from supabase import create_client, Client
 from dotenv import load_dotenv
-import logging
 
-# 📌 Charger les variables d’environnement depuis le fichier .env
 load_dotenv()
 
-# 📌 Récupérer la configuration Supabase
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_KEY = os.getenv("SUPABASE_KEY")
+TESTING = os.getenv("TESTING") == "1"
 
-# 📌 Vérifier que les variables sont bien définies
-if not SUPABASE_URL or not SUPABASE_KEY:
-    raise ValueError("❌ Erreur : Les variables SUPABASE_URL et SUPABASE_KEY ne sont pas définies !")
+_supabase: Client | None = None
 
-# 📌 Créer une instance unique de Supabase
-supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
+if not TESTING:
+    if not SUPABASE_URL or not SUPABASE_KEY:
+        raise ValueError("❌ Erreur : Les variables SUPABASE_URL et SUPABASE_KEY ne sont pas définies !")
+    _supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 
-# 📌 Fonction pour récupérer la connexion à Supabase
 def get_db() -> Client:
     """
-    Retourne une connexion à la base de données Supabase.
+    Renvoie le client Supabase. En mode TESTING, on NE doit pas appeler ce getter :
+    les tests doivent override cette dépendance avec un client factice.
     """
-    return supabase
+    if TESTING:
+        # Sécurité: si un test oublie d’override, on échoue explicitement.
+        raise RuntimeError("get_db() appelé en mode TESTING. Mocke cette dépendance via app.dependency_overrides.")
+    assert _supabase is not None, "Client Supabase non initialisé"
+    return _supabase

@@ -1,8 +1,13 @@
+import os
+
+os.environ.setdefault("TESTING", "1")
+os.environ.setdefault("SUPABASE_URL", "http://example.com")
+os.environ.setdefault("SUPABASE_KEY", "dummy")
+
 import pytest
 from fastapi.testclient import TestClient
-from postgrest.exceptions import APIError
 
-from app.main import app           # ton FastAPI()
+from app.main import app
 from app.core.database import get_db
 
 # --- fakes minimalistes ---
@@ -28,7 +33,6 @@ class FakeTable:
     def single(self):            self._ops.append(("single",));          return self
 
     def execute(self):
-        # route simple selon la table + op
         return self.fake.handle(self.name, self._ops)
 
 class FakeSupabase:
@@ -39,20 +43,14 @@ class FakeSupabase:
     def table(self, name):
         return FakeTable(name, self)
 
-    # storage ou autres si besoin:
-    @property
-    def storage(self):  # pas utilisé ici, mais tu peux étendre
-        raise NotImplementedError
-
-    # router d’exécution
     def handle(self, table, ops):
         return self.script(table, ops)
 
 @pytest.fixture
-def client_ok(monkeypatch):
+def client_ok():
     # script par défaut: renvoie qqch de plausible
     def script(table, ops):
-        # Exemple: insert dans stickers → OK
+        # stickers
         if table == "stickers":
             if any(op[0] == "insert" for op in ops):
                 return FakeResp([{"id": "fixed-id"}])
@@ -62,19 +60,25 @@ def client_ok(monkeypatch):
                     "lat": 1.0, "long": 2.0, "community_id": "c", "auth_id":"a",
                     "created_at":"2025-01-01T00:00:00Z"
                 }])
+
+        # profiles
         if table == "profiles":
-            if any(op[0]=="select" and ("single",) in ops for op in [ops]):
+            if any(op[0] == "single" for op in ops):
                 return FakeResp({"auth_id":"u","username":"foo","bio":"bar","avatar_url":None})
-            if any(op[0]=="update" for op in ops):
-                # retourne la ligne mise à jour
+            if any(op[0] == "update" for op in ops):
                 payload = [op[1] for op in ops if op[0]=="update"][0]
                 return FakeResp([{"auth_id":"u", **payload}])
+
+        # user_communities
         if table == "user_communities":
-            if any(op[0]=="insert" for op in ops):
+            if any(op[0] == "insert" for op in ops):
                 return FakeResp([{"ok": True}])
+
+        # communities
         if table == "communities":
-            if any(op[0]=="select" for op in ops):
+            if any(op[0] == "select" for op in ops):
                 return FakeResp([{"id":"c"}])
+
         return FakeResp([])
 
     fake = FakeSupabase(script=script)
@@ -83,11 +87,13 @@ def client_ok(monkeypatch):
         return fake
 
     app.dependency_overrides[get_db] = override_get_db
-    yield TestClient(app)
-    app.dependency_overrides.clear()
+    try:
+        yield TestClient(app)
+    finally:
+        app.dependency_overrides.clear()
 
 @pytest.fixture
-def client_fk_error(monkeypatch):
+def client_fk_error():
     def script(table, ops):
         from postgrest.exceptions import APIError
         if table == "stickers" and any(op[0]=="insert" for op in ops):
@@ -99,5 +105,7 @@ def client_fk_error(monkeypatch):
         return fake
 
     app.dependency_overrides[get_db] = override_get_db
-    yield TestClient(app)
-    app.dependency_overrides.clear()
+    try:
+        yield TestClient(app)
+    finally:
+        app.dependency_overrides.clear()
