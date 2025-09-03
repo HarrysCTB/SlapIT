@@ -69,18 +69,6 @@ def create_community(community: CommunityCreate, supabase: Client = Depends(get_
 
     return CommunityResponse(**data)
 
-@router.get("/{community_id}", response_model=CommunityResponse)
-def get_community(community_id: str, supabase: Client = Depends(get_db)):
-    """
-    Récupère une communauté depuis Supabase.
-    """
-    response = supabase.table("communities").select("*").eq("id", community_id).execute()
-    if not response.data:
-        raise HTTPException(status_code=404, detail="Communauté introuvable")
-    # response.data renvoie une liste, on prend le premier élément
-    community_data = response.data[0]
-    return CommunityResponse(**community_data)
-
 @router.post("/{community_id}/join")
 def join_community(
     community_id: UUID,
@@ -92,22 +80,28 @@ def join_community(
     - community_id : UUID dans le path
     - user_id : UUID dans le body JSON
     """
+    user_id = str(req.user_id)
+    community_id_str = str(community_id)
+
     data = {
-        "user_id": str(req.user_id),
-        "community_id": str(community_id),
+        "user_id": user_id,
+        "community_id": community_id_str,
         "joined_at": datetime.now(timezone.utc).isoformat(),
     }
 
     try:
-        res = supabase.table("user_communities").insert(data).execute()
+        # 🔹 1. Ajout dans la table de relation
+        supabase.table("user_communities").insert(data).execute()
+
+        # 🔹 2. Update du profile pour stocker la communauté active
+        supabase.table("profiles").update({"community_id": community_id_str}).eq("auth_id", user_id).execute()
+
     except APIError as e:
-        # Conflit FK / doublon (déjà membre) -> remonte une 400 propre
         raise HTTPException(status_code=400, detail=e.message or "Insert failed")
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-    # ✅ Toujours un JSON + 200 pour que KrakenD soit content
-    return JSONResponse(status_code=200, content={"ok": True})
+    return JSONResponse(status_code=200, content={"ok": True, "community_id": community_id_str})
 
 @router.delete("/{community_id}/quit")
 def quit_community(community_id: str, user_id: str, supabase: Client = Depends(get_db)):
