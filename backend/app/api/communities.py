@@ -1,4 +1,6 @@
 from fastapi import APIRouter, HTTPException, Depends
+from pydantic import BaseModel
+from uuid import UUID
 from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.models.community import Community
@@ -7,8 +9,13 @@ import uuid
 from datetime import datetime, timezone
 from supabase import Client
 from typing import List
+from postgrest import APIError
+from fastapi.responses import JSONResponse
 
 router = APIRouter()
+
+class JoinRequest(BaseModel):
+    user_id: UUID
 
 @router.post("/", response_model=CommunityResponse)
 def create_community(community: CommunityCreate, supabase: Client = Depends(get_db)):
@@ -75,19 +82,32 @@ def get_community(community_id: str, supabase: Client = Depends(get_db)):
     return CommunityResponse(**community_data)
 
 @router.post("/{community_id}/join")
-def join_community(community_id: str, user_id: str, supabase: Client = Depends(get_db)):
+def join_community(
+    community_id: UUID,
+    req: JoinRequest,
+    supabase: Client = Depends(get_db),
+):
     """
     Permet à un utilisateur de rejoindre une communauté.
+    - community_id : UUID dans le path
+    - user_id : UUID dans le body JSON
     """
     data = {
-        "user_id": user_id,
-        "community_id": community_id,
-        "joined_at": datetime.now(timezone.utc).isoformat()
+        "user_id": str(req.user_id),
+        "community_id": str(community_id),
+        "joined_at": datetime.now(timezone.utc).isoformat(),
     }
-    response = supabase.table("user_communities").insert(data).execute()
-    if not response.data:
-        raise HTTPException(status_code=response.status_code, detail=str(response.data))
-    return {"message": "User joined the community successfully"}
+
+    try:
+        res = supabase.table("user_communities").insert(data).execute()
+    except APIError as e:
+        # Conflit FK / doublon (déjà membre) -> remonte une 400 propre
+        raise HTTPException(status_code=400, detail=e.message or "Insert failed")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+    # ✅ Toujours un JSON + 200 pour que KrakenD soit content
+    return JSONResponse(status_code=200, content={"ok": True})
 
 @router.delete("/{community_id}/quit")
 def quit_community(community_id: str, user_id: str, supabase: Client = Depends(get_db)):
