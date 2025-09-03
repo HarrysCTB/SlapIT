@@ -63,11 +63,39 @@ def client_ok():
 
         # profiles
         if table == "profiles":
+                # GET /users/{auth_id} -> .select("*").eq(...).single().execute()
             if any(op[0] == "single" for op in ops):
-                return FakeResp({"auth_id":"u","username":"foo","bio":"bar","avatar_url":None})
+                # renvoyer un profil COMPLET conforme à ProfileResponse
+                return FakeResp({
+                    "id": 1,
+                    "created_at": "2025-01-01T00:00:00Z",
+                    "auth_id": "u",
+                    "username": "foo",
+                    "avatar_url": None,
+                    "bio": "bar",
+                    "community_id": None,
+                    "is_admin": False,
+                    "total_stickers": 0,
+                    "score": 0,
+                })
+
+            # PUT /users/{auth_id} -> update(...).eq(...).execute()
             if any(op[0] == "update" for op in ops):
-                payload = [op[1] for op in ops if op[0]=="update"][0]
-                return FakeResp([{"auth_id":"u", **payload}])
+                payload = [op[1] for op in ops if op[0] == "update"][0]
+                # merge avec valeurs par défaut pour satisfaire le response_model
+                return FakeResp([{
+                    "id": 1,
+                    "created_at": "2025-01-01T00:00:00Z",
+                    "auth_id": "u",
+                    "community_id": None,
+                    "is_admin": False,
+                    "total_stickers": 0,
+                    "score": 0,
+                    # champs mis à jour
+                    "username": payload.get("username", "foo"),
+                    "avatar_url": payload.get("avatar_url", None),
+                    "bio": payload.get("bio", "bar"),
+                }])
 
         # user_communities
         if table == "user_communities":
