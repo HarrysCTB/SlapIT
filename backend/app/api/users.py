@@ -63,26 +63,23 @@ def get_profile(auth_id: str, supabase: Client = Depends(get_db)):
             detail=f"Erreur lors de la récupération du profil: {str(e)}"
         )
 
-@router.put("/{auth_id}", response_model=ProfileResponse)
-def update_profile(auth_id: UUID, profile: ProfileCreate, supabase: Client = Depends(get_db)):
-    try:
-        res = (
-            supabase.table("profiles")
-            .update({
-                "username": profile.username,
-                "avatar_url": profile.avatar_url,
-                "bio": profile.bio,
-            })
-            .eq("auth_id", str(auth_id))
-            .select("*")
-            .single()
-            .execute()
-        )
-        if not res.data:
-            raise HTTPException(status_code=404, detail="Profil non trouvé")
-        return res.data
-    except APIError as e:
-        raise HTTPException(status_code=400, detail=e.message or "Update failed")
+@router.put("/users/{auth_id}", response_model=ProfileResponse)
+def update_profile(auth_id: str, profile: ProfileCreate, supabase: Client = Depends(get_db)):
+    payload = {
+        "username": profile.username,
+        "avatar_url": profile.avatar_url,
+        "bio": profile.bio,
+    }
+    res = supabase.table("profiles").update(payload).eq("auth_id", auth_id).execute()
+
+    # si rien modifié, tenter de lire l’existant (ou renvoyer 404)
+    if not res.data:
+        existing = supabase.table("profiles").select("*").eq("auth_id", auth_id).single().execute()
+        if not existing.data:
+            raise HTTPException(status_code=404, detail="Profil introuvable")
+        return existing.data
+
+    return res.data[0]
 
 @router.get("/{auth_id}/stickers")
 def get_stickers_for_user(
