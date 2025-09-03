@@ -10,7 +10,7 @@ from uuid import UUID
 router = APIRouter()
 
 @router.post("/", response_model=ProfileResponse)
-def create_profile(profile: ProfileCreate, supabase: Client = Depends(get_db)):
+def create_profile_route(profile: ProfileCreate, supabase: Client = Depends(get_db)):
     """
     Endpoint pour créer un profil utilisateur.
     """
