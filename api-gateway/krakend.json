@@ -16,14 +16,18 @@
   "endpoints": [
     {
       "endpoint": "/docs",
+      "method": "GET",
+      "output_encoding": "no-op",
+      "backend": [
+        { "url_pattern": "/docs", "host": ["http://slapit-backend:8000"] }
+      ]
+    },
+    {
+      "endpoint": "/docs",
       "method": "HEAD",
       "output_encoding": "no-op",
       "backend": [
-        {
-          "url_pattern": "/docs",
-          "host": ["http://slapit-backend:8000"],
-          "method": "HEAD"
-        }
+        { "url_pattern": "/docs", "method": "HEAD", "host": ["http://slapit-backend:8000"] }
       ]
     },
     {
